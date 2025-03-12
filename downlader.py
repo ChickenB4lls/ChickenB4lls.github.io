@@ -4,7 +4,7 @@ import os
 
 script_directory = os.path.dirname(os.path.abspath(__file__))
 
-nom_serie="sol_lune"
+nom_serie="riv_emergents"
 
 # Étape 1 : Lire le fichier .txt
 with open(script_directory+'\\'+nom_serie+'.txt', 'r', encoding='utf-8') as file:
