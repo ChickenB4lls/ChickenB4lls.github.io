@@ -14,9 +14,10 @@
       --text-muted: #7b8ca0;
       --card-width: 255px;
       --card-height: 355px;
+      --booster-height: 445px;
       
       /* Image de la couverture du booster */
-      --booster-img: url('couverturev3.jpeg');
+      --booster-img: url('booster.jpeg');/*url('couverturev3.jpeg');*/
       /* Image du dos de toutes les cartes */
       --card-back-img: url('dos.png');
       
@@ -212,12 +213,46 @@
       border-radius: 12px;
       cursor: grab;
       touch-action: none;
-      background-image: var(--booster-img);
-      background-size: cover;
-      background-position: center;
-      box-shadow: 0 5px 10px rgba(0, 0, 0, 0.7), inset 0 0 0 2px rgba(255, 255, 255, 0.3);
       animation: packFloat 3s ease-in-out infinite;
       transition: transform 0.6s cubic-bezier(0.6, 0, 0.4, 1), opacity 0.5s ease;
+    }
+
+    #pack-body {
+      position: absolute;
+      inset: 0;
+      /* L'ombre s'applique au conteneur non découpé */
+      filter: drop-shadow(0px 5px 8px rgba(0, 0, 0, 0.6));
+    }
+
+    #pack-body::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: var(--booster-img);
+      background-size: var(--card-width) var(--booster-height);
+      background-position: top center;
+
+      /* Le découpage s'applique uniquement sur le visuel de fond */
+      clip-path: inset(48px 0 0 0 round 0 0 12px 12px);
+    }
+
+    /* Le rabat du haut : ombre uniquement en haut et sur les côtés */
+    #flap {
+      position: absolute;
+      top: 0; 
+      left: 0; 
+      right: 0;
+      height: 48px;
+      transform-origin: left bottom;
+      z-index: 2;
+      background-image: var(--booster-img);
+      background-size: var(--card-width) var(--booster-height);
+      background-position: top center;
+      border-bottom: 2px dashed rgba(255, 255, 255, 0.8);
+      transition: transform 0.35s ease-out, opacity 0.4s ease;
+
+      /* Ombre orientée vers le haut (Offset Y = -3px) */
+      filter: drop-shadow(0px -3px 6px rgba(0, 0, 0, 0.5));
     }
 
     #pack::before {
@@ -247,21 +282,6 @@
     @keyframes packShine {
       from { background-position: 170% 0; }
       to { background-position: -100% 0; }
-    }
-
-    /* Bandeau de déchirement du haut */
-    #flap {
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 48px;
-      border-radius: 12px 12px 0 0;
-      transform-origin: left bottom;
-      z-index: 2;
-      background-image: var(--booster-img);
-      background-size: var(--card-width) var(--card-height);
-      background-position: top center;
-      border-bottom: 2px dashed rgba(255, 255, 255, 0.8);
-      transition: transform 0.35s ease-out, opacity 0.4s ease;
     }
 
     #flap.torn {
@@ -321,7 +341,8 @@
       -webkit-backface-visibility: hidden;
       overflow: hidden;
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
-      background-size: cover;
+      background-size: var(--card-width) var(--card-height);
+      background-repeat: no-repeat;
       background-position: center;
     }
 
@@ -857,18 +878,20 @@
       const targetPool = pool.length ? pool : fallbackPool;
 
       const card = getRandomItem(targetPool);
-      return { ...card, rarity: pool.length ? rarity : 'common' };
+      return { ...card, rarity: pool.length ? rarity : 'common', lastCard : isLastCard };
     }
     /* ==========================================================================
        4. GESTION DU BOOSTER
        ========================================================================== */
     function renderBooster() {
+      document.getElementById("stage").style.height = "var(--booster-height)";
       endScreen.classList.remove('visible');
       tray.innerHTML = '';
       count.textContent = '';
       
       stage.innerHTML = `
         <div id="pack">
+          <div id="pack-body"></div>
           <div id="flap"></div>
           <div id="tear-line"></div>
         </div>
@@ -940,6 +963,7 @@
        5. PILE DE CARTES
        ========================================================================== */
     function buildCardStack() {
+      document.getElementById("stage").style.height = "var(--card-height)";
       const typeCounts = {};
       currentCards = [0, 1, 2, 3, 4].map(i => {
         const card = createCardData(rollRarity(i === 4), typeCounts, i === 4);
@@ -1026,35 +1050,50 @@
           triggerRareFlash();
         }
 
-        setTimeout(() => isBusy = false, 500);
+        if (cardData.lastCard) {
+          setTimeout(() => {
+            isBusy = false;
+            addCardToTray(cardData);
+            completeBoosterSession();
+          }, 400);
+        } else {
+          setTimeout(() => isBusy = false, 500);
+        }
+        
+
         updateUIInfo();
+
+        
       } else {
-        // Éjecter la carte
-        const dir = Math.random() < 0.5 ? -1 : 1;
-        elem.style.setProperty('--out-x', `${dir * 350}px`);
-        elem.style.setProperty('--out-y', '-80px');
-        elem.style.setProperty('--out-r', `${dir * 30}deg`);
-        elem.classList.add('discarded');
+        if (!cardData.lastCard) {
+          // Éjecter la carte
+          const dir = Math.random() < 0.5 ? -1 : 1;
+          elem.style.setProperty('--out-x', `${dir * 350}px`);
+          elem.style.setProperty('--out-y', '-80px');
+          elem.style.setProperty('--out-r', `${dir * 30}deg`);
+          elem.classList.add('discarded');
 
-        addCardToTray(cardData);
+          addCardToTray(cardData);
 
-        setTimeout(() => elem.remove(), 600);
+          setTimeout(() => elem.remove(), 600);
 
-        currentIndex++;
-        isFlipped = false;
+          currentIndex++;
+          isFlipped = false;
 
-        currentCards.forEach((c, i) => {
-          if (i >= currentIndex) {
-            c.element.style.setProperty('--stack-depth', i - currentIndex);
-          }
-        });
+          currentCards.forEach((c, i) => {
+            if (i >= currentIndex) {
+              c.element.style.setProperty('--stack-depth', i - currentIndex);
+            }
+          });
 
-        setTimeout(() => {
-          isBusy = false;
-          if (currentIndex >= currentCards.length) completeBoosterSession();
-        }, 400);
+          setTimeout(() => {
+            isBusy = false;
+            if (currentIndex >= currentCards.length) completeBoosterSession();
+          }, 400);
 
-        updateUIInfo();
+          updateUIInfo();
+        }
+        
       }
     }
 
@@ -1103,7 +1142,13 @@
       if (currentIndex >= currentCards.length) {
         hint.textContent = '';
       } else {
-        hint.textContent = isFlipped ? 'Cliquez pour passer à la carte suivante' : 'Cliquez sur la carte pour la révéler';
+        if (isFlipped && currentCards[currentIndex]?.lastCard) {
+          hint.textContent = '';
+        } else if (isFlipped) {
+          hint.textContent = 'Cliquez pour passer à la carte suivante';
+        } else {
+          hint.textContent = 'Cliquez sur la carte pour la révéler';
+        }
       }
     }
 
