@@ -391,6 +391,7 @@
     /* Halo lumineux autour de la carte selon sa rareté */
     .card.is-flipped[data-rarity="rare"] .card-front { box-shadow: 0 0 5px #3b8cff; }
     .card.is-flipped[data-rarity="holo"] .card-front { box-shadow: 0 0 10px #c94bff; }
+    .card.is-flipped[data-rarity="ultra"] .card-front { box-shadow: 0 0 10px #ff2a8d; }
     .card.is-flipped[data-rarity="legendary"] .card-front { box-shadow: 0 0 15px #f0b420; }
 
     @media (max-height: 640px) {
@@ -484,7 +485,9 @@
     .dex-item[data-rarity="uncommon"]  { --rc: #4cc27a; }
     .dex-item[data-rarity="rare"]      { --rc: #3b8cff; }
     .dex-item[data-rarity="holo"]      { --rc: #c94bff; }
+    .dex-item[data-rarity="ultra"] { --rc: #ff2a8d; }
     .dex-item[data-rarity="legendary"] { --rc: #f0b420; }
+    
 
     .dex-img-wrap { position: relative; }
     .dex-img {
@@ -628,7 +631,8 @@
       common:    { name: 'Commune' },
       uncommon:  { name: 'Peu commune' },
       rare:      { name: 'Rare' },
-      holo:      { name: 'Holo Rare' },
+      holo:      { name: 'Holographique' },
+      ultra:      { name: 'Ultra Rare' },
       legendary: { name: 'Légendaire' }
     };
 
@@ -644,7 +648,8 @@
       uncommon: 2,
       rare: 3,
       holo: 4,
-      legendary: 5
+      ultra: 5,
+      legendary: 6
     };
 
     const TYPE_ORDER = {
@@ -757,55 +762,55 @@
       { 
         name: 'Liarok', 
         type: 'pokemon',
-        rarity: 'holo', 
+        rarity: 'rare', 
         img: 'cartes/liarok.jpg' 
       },
       { 
         name: 'Beniez', 
         type: 'pokemon',
-        rarity: 'holo', 
+        rarity: 'rare', 
         img: 'cartes/beniez.jpg'
       },
       { 
         name: 'Etistpab', 
         type: 'pokemon',
-        rarity: 'holo', 
+        rarity: 'rare', 
         img: 'cartes/etistpab.jpg'
       },
       { 
         name: 'syleam', 
         type: 'pokemon',
-        rarity: 'holo', 
+        rarity: 'rare', 
         img: 'cartes/syleam.jpg'
       },
       { 
         name: 'Haras', 
         type: 'pokemon',
-        rarity: 'holo', 
+        rarity: 'rare', 
         img: 'cartes/haras.jpg'
       },
       { 
         name: 'Hannavas', 
         type: 'pokemon',
-        rarity: 'holo', 
+        rarity: 'rare', 
         img: 'cartes/hannavas.jpg'
       },
       { 
         name: 'Eilodna', 
         type: 'pokemon',
-        rarity: 'holo', 
+        rarity: 'rare', 
         img: 'cartes/eilodna.png'
       },
       { 
         name: 'Lëan', 
         type: 'pokemon',
-        rarity: 'holo', 
+        rarity: 'rare', 
         img: 'cartes/lean.png'
       },
       { 
         name: 'Pied de Tellaiv', 
         type: 'trainer',
-        rarity: 'holo', 
+        rarity: 'rare', 
         img: 'cartes/pied.png'
       },
       { 
@@ -817,8 +822,32 @@
       { 
         name: 'Enami', 
         type: 'pokemon',
-        rarity: 'holo', 
+        rarity: 'rare', 
         img: 'cartes/enami.png'
+      },
+      { 
+        name: 'Beniez V', 
+        type: 'pokemon',
+        rarity: 'ultra', 
+        img: 'cartes/beniez_v.png'
+      },
+      { 
+        name: 'Hannavas V', 
+        type: 'pokemon',
+        rarity: 'ultra', 
+        img: 'cartes/hannavas_v.png'
+      },
+      { 
+        name: 'Haras V', 
+        type: 'pokemon',
+        rarity: 'ultra', 
+        img: 'cartes/haras_v.png'
+      },
+      { 
+        name: 'Eliodna V', 
+        type: 'pokemon',
+        rarity: 'ultra', 
+        img: 'cartes/eliodna_v.png'
       }
     ];
 
@@ -858,12 +887,23 @@
     const getRandomItem = arr => arr[Math.floor(Math.random() * arr.length)];
 
     function rollRarity(isLastCard) {
-      const rand = Math.random() * 100;
-      if (isLastCard) {
-        return rand < 1 ? 'legendary' : rand < 35 ? 'holo' : 'rare';
-      }
-      return rand < 3 ? 'holo' : rand < 15 ? 'rare' : rand < 45 ? 'uncommon' : 'common';
-    }
+  const rand = Math.random() * 100;
+
+  if (isLastCard) {
+    // Carte garantie / slot de fin (ex: Rare ou supérieur)
+    return rand < 1 ? 'legendary' 
+         : rand < 10 ? 'ultra' // 9% de chance (1 à 9.99)
+         : rand < 45 ? 'holo'       // 30% de chance (10 à 39.99)
+         : 'rare';                  // 60% de chance (40 à 99.99)
+  }
+
+  // Cartes standard du booster
+  return rand < 1 ? 'ultra'    // 1.5% de chance (0.5 à 1.99)
+       : rand < 5 ? 'holo'          // 3% de chance (2 à 4.99)
+       : rand < 15 ? 'rare'         // 12% de chance (5 à 16.99)
+       : rand < 45 ? 'uncommon'     // 30% de chance (17 à 46.99)
+       : 'common';                  // 53% de chance (47 à 99.99)
+}
 
 
     // Un type est autorisé tant que le quota du booster n'est pas atteint
@@ -1315,7 +1355,7 @@
     /* ==========================================================================
        APERÇU AGRANDI — effet holographique (rare, holo, légendaire)
        ========================================================================== */
-    const HOLO_RARITIES = ['rare', 'holo', 'legendary'];
+    const HOLO_RARITIES = ['rare', 'holo', 'ultra', 'legendary'];
     const lbImgEl = $('#lightbox-img');
     const lbCard = document.createElement('div');
     lbCard.id = 'lightbox-card';
