@@ -807,7 +807,7 @@
     function rollRarity(isLastCard) {
       const rand = Math.random() * 100;
       if (isLastCard) {
-        return rand < 3 ? 'legendary' : rand < 35 ? 'holo' : 'rare';
+        return rand < 1 ? 'legendary' : rand < 35 ? 'holo' : 'rare';
       }
       return rand < 3 ? 'holo' : rand < 15 ? 'rare' : rand < 45 ? 'uncommon' : 'common';
     }
