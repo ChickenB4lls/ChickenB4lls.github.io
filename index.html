@@ -265,6 +265,12 @@
 
     #pack.drop { transform: translateY(120%) rotate(8deg); opacity: 0; animation: none; }
 
+    #pack.drop { 
+      animation: none !important;
+      transform: translateY(120%) rotate(8deg) !important;
+      opacity: 0;
+    }
+
     @keyframes packFloat { 50% { transform: translateY(-8px) rotate(-0.5deg); } }
 
     /* Brillance plastique sur le booster */
@@ -297,6 +303,7 @@
       background: #ffffff;
       box-shadow: 0 0 10px #ffffff, 0 0 20px #ffffff;
       z-index: 3;
+      transition: width 0.1s linear;
     }
 
     /* ==========================================================================
@@ -904,60 +911,77 @@
     }
 
     function bindBoosterEvents(pack, flap, tearLine) {
-      let isDragging = false;
-      let startX = 0;
-      let progress = 0;
-      let isTorn = false;
+  let isDragging = false;
+  let startX = 0;
+  let progress = 0;
+  let isTorn = false;
 
-      pack.onpointerdown = e => {
-        if (isTorn) return;
-        isDragging = true;
-        startX = e.clientX;
-        pack.setPointerCapture(e.pointerId);
-        flap.style.transition = 'none';
-      };
-
-      pack.onpointermove = e => {
-        if (!isDragging || isTorn) return;
-        
-        progress = Math.max(0, Math.min(1, (e.clientX - startX) / (pack.offsetWidth * 0.7)));
-        flap.style.transform = `rotate(${-progress * 12}deg) translateY(${-progress * 6}px)`;
-        tearLine.style.width = `${progress * 100}%`;
-        
-        if (progress >= 1) {
-          isTorn = true;
-          isDragging = false;
-          executeOpeningAnimation(pack, flap, tearLine);
-        }
-      };
-
-      const resetDrag = () => {
-        if (isTorn) return;
-        isDragging = false;
-        flap.style.transition = '';
-        flap.style.transform = '';
-        tearLine.style.width = '0%';
-      };
-
-      pack.onpointerup = resetDrag;
-      pack.onpointercancel = resetDrag;
+  // Déclenchement automatique quand la ligne atteint 100% de sa largeur
+  tearLine.addEventListener('transitionend', (e) => {
+    if (e.propertyName === 'width' && progress >= 1 && !isTorn) {
+      isTorn = true;
+      executeOpeningAnimation(pack, flap, tearLine);
     }
+  });
+
+  pack.onpointerdown = e => {
+    if (isTorn) return;
+    isDragging = true;
+    startX = e.clientX;
+    pack.setPointerCapture(e.pointerId);
+  };
+
+  pack.onpointermove = e => {
+    if (!isDragging || isTorn) return;
+    
+    progress = Math.max(0, Math.min(1, (e.clientX - startX) / (pack.offsetWidth * 0.7)));
+    tearLine.style.width = `${progress * 100}%`;
+    
+    // Si l'utilisateur atteint le bout, on stoppe le drag pour lancer la fin
+    if (progress >= 1) {
+      isDragging = false;
+    }
+  };
+
+  const resetDrag = () => {
+    if (isTorn) return;
+    isDragging = false;
+    if (progress < 1) {
+      tearLine.style.width = '0%';
+    }
+  };
+
+  pack.onpointerup = resetDrag;
+  pack.onpointercancel = resetDrag;
+}
 
     function executeOpeningAnimation(pack, flap, tearLine) {
-      hint.style.opacity = '0';
-      flap.classList.add('torn');
-      tearLine.style.opacity = '0';
+  hint.style.opacity = '0';
+  
+  flap.style.transform = '';
+  flap.classList.add('torn');
+  tearLine.style.opacity = '0';
 
-      flashOverlay.classList.remove('active');
-      void flashOverlay.offsetWidth;
-      flashOverlay.classList.add('active');
+  flashOverlay.classList.remove('active');
+  void flashOverlay.offsetWidth;
+  flashOverlay.classList.add('active');
 
-      setTimeout(() => pack.classList.add('drop'), 300);
-      setTimeout(() => {
-        pack.remove();
-        buildCardStack();
-      }, 800);
-    }
+  // Retrait de l'animation de flottaison immédiatement
+  pack.style.animation = 'none';
+
+  setTimeout(() => {
+    flap.style.display = 'none';
+    // Utilisation de requestAnimationFrame pour garantir la fluidité de la chute
+    requestAnimationFrame(() => {
+      pack.classList.add('drop');
+    });
+  }, 200);
+
+  setTimeout(() => {
+    pack.remove();
+    buildCardStack();
+  }, 800);
+}
 
     /* ==========================================================================
        5. PILE DE CARTES
