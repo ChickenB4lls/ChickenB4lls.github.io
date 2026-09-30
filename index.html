@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Ouverture de Booster TCG - Cartes Pleine Image</title>
+  
+  <style>
+    /* ==========================================================================
+       1. VARIABLES ET STYLES DE BASE
+       ========================================================================== */
+    :root {
+      --bg-color: #0b0a14;
+      --text-muted: #9a94c4;
+      --card-width: 250px;
+      --card-height: 355px;
+      
+      /* Image de la couverture du booster */
+      --booster-img: url('couverturev2.jpeg');
+      /* Image du dos de toutes les cartes */
+      --card-back-img: url('dos.png');
+      
+      box-sizing: border-box;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: radial-gradient(ellipse at 50% 30%, #201642, var(--bg-color) 75%);
+      color: #ffffff;
+      font-family: "Trebuchet MS", system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      user-select: none;
+    }
+
+    /* ==========================================================================
+       2. LAYOUT & INTERFACE UTILISATEUR
+       ========================================================================== */
+    #count {
+      position: absolute;
+      top: calc(env(safe-area-inset-top, 0px) + 16px);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    #stage {
+      position: relative;
+      width: var(--card-width);
+      height: var(--card-height);
+      perspective: 1000px;
+    }
+
+    #hint {
+      color: var(--text-muted);
+      font-size: 14px;
+      height: 20px;
+      text-align: center;
+      transition: opacity 0.3s ease;
+    }
+
+    #tray {
+      display: flex;
+      gap: 8px;
+      height: 52px;
+    }
+
+    .mini-card {
+      width: 36px;
+      height: 50px;
+      border-radius: 4px;
+      background-size: cover;
+      background-position: center;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+      animation: miniPop 0.5s cubic-bezier(0.3, 1.5, 0.5, 1);
+      cursor: zoom-in;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .mini-card:hover {
+      transform: translateY(-4px) scale(1.15);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.6);
+    }
+
+    /* Aperçu agrandi d'une carte */
+    #lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      padding: 20px;
+      background: rgba(5, 4, 12, 0.85);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      cursor: zoom-out;
+    }
+
+    #lightbox.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    #lightbox-img {
+      width: auto;
+      height: auto;
+      max-width: min(90vw, 500px);
+      max-height: 78vh;
+      aspect-ratio: 250 / 355;
+      object-fit: cover;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+      transform: scale(0.85);
+      transition: transform 0.3s cubic-bezier(0.3, 1.4, 0.5, 1);
+    }
+
+    #lightbox.open #lightbox-img {
+      transform: scale(1);
+    }
+
+    #lightbox-caption {
+      color: var(--text-muted);
+      font-size: 14px;
+      letter-spacing: 1px;
+      text-align: center;
+    }
+
+    @keyframes miniPop {
+      from { transform: translateY(-40px) scale(0.3); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
+    #end-screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    #end-screen.visible {
+      display: flex;
+      animation: miniPop 0.6s ease;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #6d3cff, #ff5a8a);
+      color: #fff;
+      border: none;
+      border-radius: 30px;
+      padding: 12px 28px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(255, 90, 138, 0.35);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .btn-primary:hover {
+      transform: scale(1.05);
+      box-shadow: 0 8px 25px rgba(255, 90, 138, 0.5);
+    }
+
+    #flash-overlay {
+      position: fixed;
+      inset: 0;
+      background: #ffffff;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    #flash-overlay.active {
+      animation: flashAnimation 0.8s ease-out;
+    }
+
+    @keyframes flashAnimation {
+      0% { opacity: 0.95; }
+      100% { opacity: 0; }
+    }
+
+    /* ==========================================================================
+       3. PAQUET BOOSTER (3D & IMAGE)
+       ========================================================================== */
+    #pack {
+      position: absolute;
+      inset: 0;
+      border-radius: 12px;
+      cursor: grab;
+      touch-action: none;
+      background-image: var(--booster-img);
+      background-size: cover;
+      background-position: center;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), inset 0 0 0 2px rgba(255, 255, 255, 0.3);
+      animation: packFloat 3s ease-in-out infinite;
+      transition: transform 0.6s cubic-bezier(0.6, 0, 0.4, 1), opacity 0.5s ease;
+    }
+
+    #pack::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 12px;
+      background: linear-gradient(to bottom, rgba(255, 255, 255, 0.2), transparent 40%, rgba(0, 0, 0, 0.6));
+      pointer-events: none;
+    }
+
+    #pack.drop { transform: translateY(120%) rotate(8deg); opacity: 0; animation: none; }
+
+    @keyframes packFloat { 50% { transform: translateY(-8px) rotate(-0.5deg); } }
+
+    /* Brillance plastique sur le booster */
+    #pack::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 12px;
+      pointer-events: none;
+      background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.4) 50%, transparent 70%);
+      background-size: 250% 100%;
+      animation: packShine 4s infinite;
+    }
+
+    @keyframes packShine {
+      from { background-position: 170% 0; }
+      to { background-position: -100% 0; }
+    }
+
+    /* Bandeau de déchirement du haut */
+    #flap {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 48px;
+      border-radius: 12px 12px 0 0;
+      transform-origin: left bottom;
+      z-index: 2;
+      background-image: var(--booster-img);
+      background-size: var(--card-width) var(--card-height);
+      background-position: top center;
+      border-bottom: 2px dashed rgba(255, 255, 255, 0.8);
+      transition: transform 0.35s ease-out, opacity 0.4s ease;
+    }
+
+    #flap.torn {
+      transition: transform 0.8s cubic-bezier(0.3, 0.7, 0.3, 1), opacity 0.8s ease;
+      transform: translate(80px, -280px) rotate(55deg) !important;
+      opacity: 0;
+    }
+
+    #tear-line {
+      position: absolute;
+      left: 0; top: 46px;
+      height: 3px; width: 0%;
+      background: #ffffff;
+      box-shadow: 0 0 10px #ffffff, 0 0 20px #ffffff;
+      z-index: 3;
+    }
+
+    /* ==========================================================================
+       4. CARTES TCG (DOS & FACE 100% IMAGE)
+       ========================================================================== */
+    .card {
+      position: absolute;
+      inset: 0;
+      transform-style: preserve-3d;
+      cursor: pointer;
+      transform: translateY(calc(var(--stack-depth) * -5px)) scale(calc(1 - var(--stack-depth) * 0.025)) rotateX(var(--rot-x, 0deg)) rotateY(var(--rot-y, 0deg));
+      transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.5s ease;
+      opacity: 0;
+    }
+
+    .card.visible { opacity: 1; }
+    .card.tilting { transition: transform 0.08s linear, opacity 0.5s ease; }
+
+    .card.discarded {
+      pointer-events: none;
+      opacity: 0;
+      transition: transform 0.65s cubic-bezier(0.5, 0, 0.8, 0.4), opacity 0.65s ease;
+      transform: translate(var(--out-x), var(--out-y)) rotate(var(--out-r)) scale(0.7) !important;
+    }
+
+    .card-inner {
+      position: absolute;
+      inset: 0;
+      transform-style: preserve-3d;
+      transition: transform 0.8s cubic-bezier(0.3, 1.3, 0.5, 1);
+    }
+
+    .card.is-flipped .card-inner {
+      transform: rotateY(180deg);
+    }
+
+    .card-face {
+      position: absolute;
+      inset: 0;
+      border-radius: 12px;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      overflow: hidden;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+      background-size: cover;
+      background-position: center;
+    }
+
+    /* Dos de la carte */
+    .card-back {
+      background-image: var(--card-back-img);
+      border: 5px solid #84241f;
+    }
+
+    /* Face avant : L'IMAGE COMPLÈTE DE LA CARTE */
+    .card-front {
+      transform: rotateY(180deg);
+      background-image: var(--card-full-img);
+    }
+
+    /* Effets Holo & Rareté sur toute la carte */
+    .glare-effect {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(circle at calc(var(--mouse-x, 0.5) * 100%) calc(var(--mouse-y, 0.5) * 100%), rgba(255,255,255,0.35), transparent 50%);
+    }
+
+    .holo-effect {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0;
+      mix-blend-mode: color-dodge;
+      background: linear-gradient(115deg, transparent 20%, rgba(255,46,166,0.6), rgba(46,255,234,0.6), rgba(255,240,46,0.6), transparent 80%);
+      background-size: 200% 200%;
+      background-position: calc(var(--mouse-x, 0.5) * 100%) calc(var(--mouse-y, 0.5) * 100%);
+    }
+
+    .rarity-holo .holo-effect, 
+    .rarity-legendary .holo-effect { opacity: 1; }
+    .rarity-rare .holo-effect { opacity: 0.45; }
+
+    /* Halo lumineux autour de la carte selon sa rareté */
+    .card.is-flipped[data-rarity="rare"] .card-front { box-shadow: 0 0 25px #3b8cff; }
+    .card.is-flipped[data-rarity="holo"] .card-front { box-shadow: 0 0 35px #c94bff; }
+    .card.is-flipped[data-rarity="legendary"] .card-front { box-shadow: 0 0 50px #f0b420; }
+
+    @media (max-height: 640px) {
+      #stage { transform: scale(0.85); }
+    }
+
+    /* ==========================================================================
+       5. POKÉDEX
+       ========================================================================== */
+    #btn-pokedex {
+      position: fixed;
+      top: calc(env(safe-area-inset-top, 0px) + 12px);
+      right: 12px;
+      z-index: 50;
+      background: rgba(32, 22, 66, 0.85);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 20px;
+      padding: 8px 16px;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s ease, background 0.2s ease;
+    }
+    #btn-pokedex:hover { transform: scale(1.05); background: rgba(60, 40, 120, 0.9); }
+
+    #pokedex {
+      position: fixed;
+      inset: 0;
+      z-index: 150;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 0 16px calc(env(safe-area-inset-bottom, 0px) + 24px);
+      background: radial-gradient(ellipse at 50% 0%, #201642, var(--bg-color) 75%);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    #pokedex.open { opacity: 1; pointer-events: auto; }
+
+    .dex-bar {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      max-width: 960px;
+      margin: 0 auto 18px;
+      padding: calc(env(safe-area-inset-top, 0px) + 14px) 0 12px;
+      background: linear-gradient(to bottom, #150f2b 80%, transparent);
+    }
+    .dex-title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .dex-title { margin: 0; font-size: 22px; letter-spacing: 2px; text-transform: uppercase; }
+    .dex-progress-text { color: var(--text-muted); font-size: 13px; margin: 6px 0 8px; }
+    .dex-progress { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+    .dex-progress > div { height: 100%; width: 0%; background: linear-gradient(90deg, #6d3cff, #ff5a8a); transition: width 0.4s ease; }
+
+    #dex-grid {
+      max-width: 960px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 16px;
+    }
+
+    .dex-item { --rc: #6b6790; text-align: center; }
+    .dex-item[data-rarity="uncommon"]  { --rc: #4cc27a; }
+    .dex-item[data-rarity="rare"]      { --rc: #3b8cff; }
+    .dex-item[data-rarity="holo"]      { --rc: #c94bff; }
+    .dex-item[data-rarity="legendary"] { --rc: #f0b420; }
+
+    .dex-img-wrap { position: relative; }
+    .dex-img {
+      width: 100%;
+      aspect-ratio: 250 / 355;
+      border-radius: 8px;
+      background-size: cover;
+      background-position: center;
+      background-color: #15112b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 34px;
+      color: rgba(255, 255, 255, 0.18);
+    }
+    .dex-item.found .dex-img {
+      cursor: zoom-in;
+      box-shadow: 0 0 0 2px var(--rc), 0 6px 16px rgba(0, 0, 0, 0.5);
+      transition: transform 0.2s ease;
+    }
+    .dex-item.found .dex-img:hover { transform: translateY(-3px) scale(1.03); }
+    .dex-item.unknown .dex-img { border: 2px dashed rgba(255, 255, 255, 0.15); }
+    .dex-item.unknown { opacity: 0.65; }
+
+    .dex-count {
+      position: absolute;
+      right: -6px;
+      bottom: -6px;
+      min-width: 28px;
+      padding: 3px 8px;
+      border-radius: 12px;
+      background: var(--rc);
+      color: #fff;
+      font-size: 12px;
+      font-weight: bold;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    }
+    .dex-num { color: var(--text-muted); font-size: 11px; margin-top: 8px; letter-spacing: 1px; }
+    .dex-name { font-size: 14px; font-weight: 600; margin-top: 2px; }
+    .dex-rarity { font-size: 11px; color: var(--rc); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+
+    /* ==========================================================================
+       6. EFFET HOLOGRAPHIQUE DANS L'APERÇU AGRANDI
+       ========================================================================== */
+    #lightbox-card {
+      position: relative;
+      display: block;
+      border-radius: 16px;
+      touch-action: none;
+      transform: perspective(900px) rotateX(var(--rot-x, 0deg)) rotateY(var(--rot-y, 0deg));
+      transition: transform 0.4s ease, box-shadow 0.3s ease;
+    }
+    #lightbox-card.tracking { transition: transform 0.08s linear, box-shadow 0.3s ease; }
+    #lightbox-card #lightbox-img { display: block; }
+
+    .lb-holo, .lb-glare {
+      position: absolute;
+      inset: 0;
+      border-radius: 16px;
+      pointer-events: none;
+      display: none;
+    }
+    #lightbox-card.is-holo .lb-holo,
+    #lightbox-card.is-holo .lb-glare { display: block; }
+
+    .lb-holo {
+      mix-blend-mode: color-dodge;
+      background: linear-gradient(115deg, transparent 20%, rgba(255,46,166,0.6), rgba(46,255,234,0.6), rgba(255,240,46,0.6), transparent 80%);
+      background-size: 200% 200%;
+      opacity: 1;
+      animation: lbHoloIdle 3.5s ease-in-out infinite alternate;
+    }
+    #lightbox-card[data-rarity="rare"] .lb-holo { opacity: 0.45; }
+
+    .lb-glare {
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      background: radial-gradient(circle at calc(var(--mouse-x, 0.5) * 100%) calc(var(--mouse-y, 0.5) * 100%), rgba(255,255,255,0.35), transparent 50%);
+    }
+
+    /* Pendant le survol / toucher : l'effet suit le pointeur au lieu de l'animation automatique */
+    #lightbox-card.tracking .lb-holo {
+      animation: none;
+      background-position: calc(var(--mouse-x, 0.5) * 100%) calc(var(--mouse-y, 0.5) * 100%);
+    }
+    #lightbox-card.tracking .lb-glare { opacity: 1; }
+
+    #lightbox.open #lightbox-card[data-rarity="rare"]      { box-shadow: 0 0 25px #3b8cff; }
+    #lightbox.open #lightbox-card[data-rarity="holo"]      { box-shadow: 0 0 35px #c94bff; }
+    #lightbox.open #lightbox-card[data-rarity="legendary"] { box-shadow: 0 0 50px #f0b420; }
+
+    @keyframes lbHoloIdle {
+      from { background-position: 0% 0%; }
+      to   { background-position: 100% 100%; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .lb-holo { animation: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="count"></div>
+  <div id="stage"></div>
+  <div id="hint"></div>
+  <div id="tray"></div>
+
+  <div id="end-screen">
+    <div id="summary-text" style="color: var(--text-muted);"></div>
+    <button id="btn-restart" class="btn-primary">Ouvrir un autre booster</button>
+  </div>
+
+  <div id="flash-overlay"></div>
+
+  <div id="lightbox" role="dialog" aria-modal="true" aria-label="Aperçu de la carte">
+    <img id="lightbox-img" alt="">
+    <div id="lightbox-caption"></div>
+  </div>
+
+  <button id="btn-pokedex" type="button">📖 Pokédex</button>
+
+  <div id="pokedex" role="dialog" aria-modal="true" aria-label="Pokédex">
+    <div class="dex-bar">
+      <div class="dex-title-row">
+        <h2 class="dex-title">Pokédex</h2>
+        <button id="btn-dex-close" class="btn-primary" type="button" style="padding: 8px 20px; font-size: 14px;">Fermer</button>
+      </div>
+      <div class="dex-progress-text" id="dex-progress-text"></div>
+      <div class="dex-progress"><div id="dex-progress-bar"></div></div>
+    </div>
+    <div id="dex-grid"></div>
+  </div>
+
+  <script>
+    /* ==========================================================================
+       1. DONNÉES ET IMAGES DE CARTES COMPLÈTES
+       ========================================================================== */
+    const RARITIES = {
+      common:    { name: 'Commune' },
+      uncommon:  { name: 'Peu commune' },
+      rare:      { name: 'Rare' },
+      holo:      { name: 'Holo Rare' },
+      legendary: { name: 'Légendaire' }
+    };
+
+    // Types de cartes et nombre maximum par booster (null = illimité)
+    const CARD_TYPES = {
+      pokemon: { name: 'Pokémon',  maxPerPack: null },
+      trainer: { name: 'Dresseur', maxPerPack: 1 },
+      energy:  { name: 'Énergie',  maxPerPack: 1 }
+    };
+
+    const RARITY_ORDER = {
+      common: 1,
+      uncommon: 2,
+      rare: 3,
+      holo: 4,
+      legendary: 5
+    };
+
+    const TYPE_ORDER = {
+      pokemon: 1,
+      trainer: 2,
+      energy: 3
+    };
+
+    // BANQUE DE CARTES
+    // Chaque carte a un "type" ('pokemon', 'trainer' ou 'energy') et une "rarity".
+    // Exemple : { name: 'Potion', type: 'trainer', rarity: 'common', img: 'cartes/potion.jpg' }
+    // Mettez ici les URLs de vos vraies cartes complètes
+    const CARD_DATABASE = [
+      { 
+        name: 'Liarok', 
+        type: 'pokemon',
+        rarity: 'common', 
+        img: 'cartes/liarok.jpg' 
+      },
+      { 
+        name: 'Beniez', 
+        type: 'pokemon',
+        rarity: 'common', 
+        img: 'cartes/beniez.jpg'
+      },
+      { 
+        name: 'Etistpab', 
+        type: 'pokemon',
+        rarity: 'common', 
+        img: 'cartes/etistpab.jpg'
+      },
+      { 
+        name: 'syleam', 
+        type: 'pokemon',
+        rarity: 'common', 
+        img: 'cartes/syleam.jpg'
+      },
+      { 
+        name: 'Haras', 
+        type: 'pokemon',
+        rarity: 'common', 
+        img: 'cartes/haras.jpg'
+      },
+      { 
+        name: 'Hannavas', 
+        type: 'pokemon',
+        rarity: 'common', 
+        img: 'cartes/hannavas.jpg'
+      },
+      { 
+        name: 'Eilodna', 
+        type: 'pokemon',
+        rarity: 'common', 
+        img: 'cartes/eilodna.png'
+      },
+      { 
+        name: 'Yerdua', 
+        type: 'pokemon',
+        rarity: 'legendary', 
+        img: 'cartes/yerdua.png'
+      },
+      { 
+        name: 'Lëan', 
+        type: 'pokemon',
+        rarity: 'common', 
+        img: 'cartes/lean.png'
+      },
+      { 
+        name: 'Pied de Tellaiv', 
+        type: 'trainer',
+        rarity: 'uncommon', 
+        img: 'cartes/pied.png'
+      },
+      { 
+        name: 'Java', 
+        rarity: 'common', 
+        type: 'energy',
+        img: 'cartes/java.png'
+      },
+      { 
+        name: 'Seb la frite', 
+        rarity: 'legendary', 
+        type: 'trainer',
+        img: 'cartes/frite.png'
+      },
+      { 
+        name: 'PHP', 
+        rarity: 'common', 
+        type: 'energy',
+        img: 'cartes/php.png'
+      },
+      { 
+        name: 'SQL', 
+        rarity: 'common', 
+        type: 'energy',
+        img: 'cartes/sql.png'
+      },
+      { 
+        name: 'Développement web', 
+        rarity: 'common', 
+        type: 'energy',
+        img: 'cartes/langages-web.png'
+      },
+      { 
+        name: 'Python', 
+        rarity: 'common', 
+        type: 'energy',
+        img: 'cartes/python.png'
+      },
+      { 
+        name: 'Liarok', 
+        type: 'pokemon',
+        rarity: 'holo', 
+        img: 'cartes/liarok.jpg' 
+      },
+      { 
+        name: 'Beniez', 
+        type: 'pokemon',
+        rarity: 'holo', 
+        img: 'cartes/beniez.jpg'
+      },
+      { 
+        name: 'Etistpab', 
+        type: 'pokemon',
+        rarity: 'holo', 
+        img: 'cartes/etistpab.jpg'
+      },
+      { 
+        name: 'syleam', 
+        type: 'pokemon',
+        rarity: 'holo', 
+        img: 'cartes/syleam.jpg'
+      },
+      { 
+        name: 'Haras', 
+        type: 'pokemon',
+        rarity: 'holo', 
+        img: 'cartes/haras.jpg'
+      },
+      { 
+        name: 'Hannavas', 
+        type: 'pokemon',
+        rarity: 'holo', 
+        img: 'cartes/hannavas.jpg'
+      },
+      { 
+        name: 'Eilodna', 
+        type: 'pokemon',
+        rarity: 'holo', 
+        img: 'cartes/eilodna.png'
+      },
+      { 
+        name: 'Lëan', 
+        type: 'pokemon',
+        rarity: 'holo', 
+        img: 'cartes/lean.png'
+      },
+      { 
+        name: 'Pied de Tellaiv', 
+        type: 'trainer',
+        rarity: 'holo', 
+        img: 'cartes/pied.png'
+      },
+      { 
+        name: 'Enami', 
+        type: 'pokemon',
+        rarity: 'common', 
+        img: 'cartes/enami.png'
+      },
+      { 
+        name: 'Enami', 
+        type: 'pokemon',
+        rarity: 'holo', 
+        img: 'cartes/enami.png'
+      }
+    ];
+
+    CARD_DATABASE.sort((a, b) => {
+      // 1. Tri par rareté
+      const rarityDiff = RARITY_ORDER[a.rarity] - RARITY_ORDER[b.rarity];
+      if (rarityDiff !== 0) return rarityDiff;
+
+      // 2. Tri par type
+      const typeDiff = TYPE_ORDER[a.type] - TYPE_ORDER[b.type];
+      if (typeDiff !== 0) return typeDiff;
+
+      // 3. Tri par nom
+      return a.name.localeCompare(b.name);
+    });
+
+
+    /* ==========================================================================
+       2. ÉTAT DU JEU ET SÉLECTEURS
+       ========================================================================== */
+    const $ = selector => document.querySelector(selector);
+    const stage = $('#stage');
+    const hint = $('#hint');
+    const tray = $('#tray');
+    const count = $('#count');
+    const endScreen = $('#end-screen');
+    const flashOverlay = $('#flash-overlay');
+
+    let currentCards = [];
+    let currentIndex = 0;
+    let isFlipped = false;
+    let isBusy = false;
+
+    /* ==========================================================================
+       3. TIRAGE
+       ========================================================================== */
+    const getRandomItem = arr => arr[Math.floor(Math.random() * arr.length)];
+
+    function rollRarity(isLastCard) {
+      const rand = Math.random() * 100;
+      if (isLastCard) {
+        return rand < 3 ? 'legendary' : rand < 35 ? 'holo' : 'rare';
+      }
+      return rand < 3 ? 'holo' : rand < 15 ? 'rare' : rand < 45 ? 'uncommon' : 'common';
+    }
+
+    // Un type est autorisé tant que le quota du booster n'est pas atteint
+    function isTypeAllowed(type, typeCounts) {
+      const max = CARD_TYPES[type]?.maxPerPack;
+      return max == null || (typeCounts[type] || 0) < max;
+    }
+/*
+    // La rareté est tirée d'abord (taux de drop), puis une carte de cette rareté
+    // parmi les types encore autorisés
+    function createCardData(rarity, typeCounts) {
+      const allowed = CARD_DATABASE.filter(c => isTypeAllowed(c.type, typeCounts));
+      const pool = allowed.filter(c => c.rarity === rarity);
+      const card = getRandomItem(pool.length ? pool : allowed);
+      return { ...card, rarity };
+    }
+*/
+    function createCardData(rarity, typeCounts) {
+      const allowed = CARD_DATABASE.filter(c => isTypeAllowed(c.type, typeCounts));
+      const pool = allowed.filter(c => c.rarity === rarity);
+      
+      // Si le pool correspond à la rareté demandée n'est pas vide, on l'utilise.
+      // Sinon, on filtre 'allowed' pour ne garder STRICTEMENT que les cartes 'common'.
+      const fallbackPool = allowed.filter(c => c.rarity === 'common');
+      const targetPool = pool.length ? pool : fallbackPool;
+
+      const card = getRandomItem(targetPool);
+      return { ...card, rarity: pool.length ? rarity : 'common' };
+    }
+    /* ==========================================================================
+       4. GESTION DU BOOSTER
+       ========================================================================== */
+    function renderBooster() {
+      endScreen.classList.remove('visible');
+      tray.innerHTML = '';
+      count.textContent = '';
+      
+      stage.innerHTML = `
+        <div id="pack">
+          <div id="flap"></div>
+          <div id="tear-line"></div>
+        </div>
+      `;
+
+      hint.textContent = 'Faites glisser en haut pour ouvrir le booster →';
+      hint.style.opacity = '1';
+
+      bindBoosterEvents($('#pack'), $('#flap'), $('#tear-line'));
+    }
+
+    function bindBoosterEvents(pack, flap, tearLine) {
+      let isDragging = false;
+      let startX = 0;
+      let progress = 0;
+      let isTorn = false;
+
+      pack.onpointerdown = e => {
+        if (isTorn) return;
+        isDragging = true;
+        startX = e.clientX;
+        pack.setPointerCapture(e.pointerId);
+        flap.style.transition = 'none';
+      };
+
+      pack.onpointermove = e => {
+        if (!isDragging || isTorn) return;
+        
+        progress = Math.max(0, Math.min(1, (e.clientX - startX) / (pack.offsetWidth * 0.7)));
+        flap.style.transform = `rotate(${-progress * 12}deg) translateY(${-progress * 6}px)`;
+        tearLine.style.width = `${progress * 100}%`;
+        
+        if (progress >= 1) {
+          isTorn = true;
+          isDragging = false;
+          executeOpeningAnimation(pack, flap, tearLine);
+        }
+      };
+
+      const resetDrag = () => {
+        if (isTorn) return;
+        isDragging = false;
+        flap.style.transition = '';
+        flap.style.transform = '';
+        tearLine.style.width = '0%';
+      };
+
+      pack.onpointerup = resetDrag;
+      pack.onpointercancel = resetDrag;
+    }
+
+    function executeOpeningAnimation(pack, flap, tearLine) {
+      hint.style.opacity = '0';
+      flap.classList.add('torn');
+      tearLine.style.opacity = '0';
+
+      flashOverlay.classList.remove('active');
+      void flashOverlay.offsetWidth;
+      flashOverlay.classList.add('active');
+
+      setTimeout(() => pack.classList.add('drop'), 300);
+      setTimeout(() => {
+        pack.remove();
+        buildCardStack();
+      }, 800);
+    }
+
+    /* ==========================================================================
+       5. PILE DE CARTES
+       ========================================================================== */
+    function buildCardStack() {
+      const typeCounts = {};
+      currentCards = [0, 1, 2, 3, 4].map(i => {
+        const card = createCardData(rollRarity(i === 4), typeCounts);
+        typeCounts[card.type] = (typeCounts[card.type] || 0) + 1;
+        return card;
+      });
+      currentIndex = 0;
+      isFlipped = false;
+      isBusy = true;
+
+      stage.innerHTML = '';
+
+      currentCards.forEach((cardData, idx) => {
+        const cardElem = document.createElement('div');
+        
+        cardElem.className = `card rarity-${cardData.rarity}`;
+        cardElem.dataset.rarity = cardData.rarity;
+        cardElem.style.setProperty('--card-full-img', `url('${cardData.img}')`);
+        cardElem.style.setProperty('--stack-depth', idx);
+        cardElem.style.zIndex = 10 - idx;
+
+        cardElem.innerHTML = `
+          <div class="card-inner">
+            <div class="card-face card-back"></div>
+            <div class="card-face card-front">
+              <div class="holo-effect"></div>
+              <div class="glare-effect"></div>
+            </div>
+          </div>
+        `;
+
+        stage.appendChild(cardElem);
+        cardData.element = cardElem;
+
+        setTimeout(() => cardElem.classList.add('visible'), 80 * (4 - idx) + 50);
+
+        bindCardTilt(cardElem, cardData);
+      });
+
+      updateUIInfo();
+      setTimeout(() => isBusy = false, 600);
+    }
+
+    function bindCardTilt(cardElem, cardData) {
+      cardElem.addEventListener('pointermove', e => {
+        if (currentCards[currentIndex] !== cardData) return;
+        
+        const rect = cardElem.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / rect.width;
+        const y = (e.clientY - rect.top) / rect.height;
+
+        cardElem.classList.add('tilting');
+        cardElem.style.setProperty('--rot-y', `${(x - 0.5) * 24}deg`);
+        cardElem.style.setProperty('--rot-x', `${(0.5 - y) * 24}deg`);
+        cardElem.style.setProperty('--mouse-x', x);
+        cardElem.style.setProperty('--mouse-y', y);
+      });
+
+      cardElem.addEventListener('pointerleave', () => {
+        cardElem.classList.remove('tilting');
+        cardElem.style.setProperty('--rot-x', '0deg');
+        cardElem.style.setProperty('--rot-y', '0deg');
+      });
+
+      cardElem.addEventListener('click', () => handleCardClick(cardData));
+    }
+
+    /* ==========================================================================
+       6. DÉROULEMENT DU JEU
+       ========================================================================== */
+    function handleCardClick(cardData) {
+      if (isBusy || currentCards[currentIndex] !== cardData) return;
+      
+      const elem = cardData.element;
+      isBusy = true;
+
+      if (!isFlipped) {
+        // Révéler la carte
+        elem.classList.add('is-flipped');
+        isFlipped = true;
+        pokedexRecord(cardData); // Pokédex : enregistrement de la carte révélée
+
+        if (cardData.rarity !== 'common' && cardData.rarity !== 'uncommon') {
+          triggerRareFlash();
+        }
+
+        setTimeout(() => isBusy = false, 500);
+        updateUIInfo();
+      } else {
+        // Éjecter la carte
+        const dir = Math.random() < 0.5 ? -1 : 1;
+        elem.style.setProperty('--out-x', `${dir * 350}px`);
+        elem.style.setProperty('--out-y', '-80px');
+        elem.style.setProperty('--out-r', `${dir * 30}deg`);
+        elem.classList.add('discarded');
+
+        addCardToTray(cardData);
+
+        setTimeout(() => elem.remove(), 600);
+
+        currentIndex++;
+        isFlipped = false;
+
+        currentCards.forEach((c, i) => {
+          if (i >= currentIndex) {
+            c.element.style.setProperty('--stack-depth', i - currentIndex);
+          }
+        });
+
+        setTimeout(() => {
+          isBusy = false;
+          if (currentIndex >= currentCards.length) completeBoosterSession();
+        }, 400);
+
+        updateUIInfo();
+      }
+    }
+
+    function triggerRareFlash() {
+      flashOverlay.classList.remove('active');
+      void flashOverlay.offsetWidth;
+      flashOverlay.classList.add('active');
+    }
+
+    function addCardToTray(cardData) {
+      const mini = document.createElement('div');
+      mini.className = 'mini-card';
+      mini.style.backgroundImage = `url(${cardData.img})`;
+      mini.title = cardData.name;
+      mini.addEventListener('click', () => openLightbox(cardData));
+      tray.appendChild(mini);
+    }
+
+    /* ==========================================================================
+       Aperçu agrandi
+       ========================================================================== */
+    const lightbox = $('#lightbox');
+    const lightboxImg = $('#lightbox-img');
+    const lightboxCaption = $('#lightbox-caption');
+
+    function openLightbox(cardData) {
+      lightboxImg.src = cardData.img;
+      lightboxImg.alt = cardData.name;
+      lightboxCaption.textContent = `${cardData.name} — ${CARD_TYPES[cardData.type]?.name ?? ''} — ${RARITIES[cardData.rarity].name}`;
+      lightbox.classList.add('open');
+    }
+
+    function closeLightbox() {
+      lightbox.classList.remove('open');
+    }
+
+    lightbox.addEventListener('click', closeLightbox);
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeLightbox();
+    });
+
+    function updateUIInfo() {
+      count.textContent = currentIndex < currentCards.length ? `Carte ${currentIndex + 1} / ${currentCards.length}` : '';
+      hint.style.opacity = '1';
+      
+      if (currentIndex >= currentCards.length) {
+        hint.textContent = '';
+      } else {
+        hint.textContent = isFlipped ? 'Cliquez pour passer à la carte suivante' : 'Cliquez sur la carte pour la révéler';
+      }
+    }
+
+    function completeBoosterSession() {
+      const bestCard = currentCards.reduce((prev, curr) => {
+        const order = Object.keys(RARITIES);
+        return order.indexOf(curr.rarity) > order.indexOf(prev.rarity) ? curr : prev;
+      });
+
+      $('#summary-text').textContent = `Meilleure carte : ${bestCard.name} (${RARITIES[bestCard.rarity].name})`;
+      count.textContent = 'BOOSTER TERMINÉ';
+      endScreen.classList.add('visible');
+    }
+
+    // Lancement
+    $('#btn-restart').onclick = renderBooster;
+    renderBooster();
+  </script>
+  <script>
+    /* ==========================================================================
+       POKÉDEX — enregistrement (localStorage) et affichage
+       Clé de stockage : { "Nom|rareté": nombre_obtenu }
+       ========================================================================== */
+    const POKEDEX_KEY = 'boosterPokedex_v1';
+    const dexKey = card => `${card.name}|${card.rarity}`;
+
+    function loadPokedex() {
+      try {
+        const data = JSON.parse(localStorage.getItem(POKEDEX_KEY));
+        return data && typeof data === 'object' ? data : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function pokedexRecord(cardData) {
+      const data = loadPokedex();
+      const key = dexKey(cardData);
+      data[key] = (data[key] || 0) + 1;
+      try {
+        localStorage.setItem(POKEDEX_KEY, JSON.stringify(data));
+      } catch (e) {
+        console.warn('Pokédex : sauvegarde impossible', e);
+      }
+    }
+
+    // Une entrée par couple (nom, rareté) présent dans la banque de cartes
+    function getPokedexEntries() {
+      const seen = new Set();
+      return CARD_DATABASE.filter(card => {
+        const key = dexKey(card);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+
+    const pokedexEl = $('#pokedex');
+
+    function renderPokedex() {
+      const data = loadPokedex();
+      const entries = getPokedexEntries();
+      const grid = $('#dex-grid');
+      grid.innerHTML = '';
+
+      let discovered = 0;
+      let totalOwned = 0;
+
+      entries.forEach((card, i) => {
+        const owned = data[dexKey(card)] || 0;
+        if (owned > 0) { discovered++; totalOwned += owned; }
+
+        const item = document.createElement('div');
+        item.className = `dex-item ${owned > 0 ? 'found' : 'unknown'}`;
+        item.dataset.rarity = card.rarity;
+
+        const wrap = document.createElement('div');
+        wrap.className = 'dex-img-wrap';
+
+        const img = document.createElement('div');
+        img.className = 'dex-img';
+        if (owned > 0) {
+          img.style.backgroundImage = `url("${card.img}")`;
+          img.title = card.name;
+          img.addEventListener('click', () => openLightbox(card));
+        } else {
+          img.textContent = '?';
+        }
+        wrap.appendChild(img);
+
+        if (owned > 0) {
+          const badge = document.createElement('span');
+          badge.className = 'dex-count';
+          badge.textContent = `×${owned}`;
+          wrap.appendChild(badge);
+        }
+
+        const num = document.createElement('div');
+        num.className = 'dex-num';
+        num.textContent = `N° ${String(i + 1).padStart(2, '0')}`;
+
+        const name = document.createElement('div');
+        name.className = 'dex-name';
+        name.textContent = owned > 0 ? card.name : '???';
+
+        const rarity = document.createElement('div');
+        rarity.className = 'dex-rarity';
+        rarity.textContent = RARITIES[card.rarity].name;
+
+        item.append(wrap, num, name, rarity);
+        grid.appendChild(item);
+      });
+
+      $('#dex-progress-text').textContent =
+        `${discovered} / ${entries.length} cartes découvertes · ${totalOwned} carte${totalOwned > 1 ? 's' : ''} au total`;
+      $('#dex-progress-bar').style.width = entries.length ? `${(discovered / entries.length) * 100}%` : '0%';
+    }
+
+    function openPokedex() {
+      renderPokedex();
+      pokedexEl.scrollTop = 0;
+      pokedexEl.classList.add('open');
+    }
+
+    function closePokedex() {
+      pokedexEl.classList.remove('open');
+    }
+
+    $('#btn-pokedex').addEventListener('click', openPokedex);
+    $('#btn-dex-close').addEventListener('click', closePokedex);
+
+    // Phase de capture : s'exécute avant le gestionnaire Échap de la lightbox,
+    // pour que Échap ferme d'abord l'aperçu, puis le pokédex.
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && pokedexEl.classList.contains('open') && !lightbox.classList.contains('open')) {
+        closePokedex();
+      }
+    }, true);
+
+    /* ==========================================================================
+       APERÇU AGRANDI — effet holographique (rare, holo, légendaire)
+       ========================================================================== */
+    const HOLO_RARITIES = ['rare', 'holo', 'legendary'];
+    const lbImgEl = $('#lightbox-img');
+    const lbCard = document.createElement('div');
+    lbCard.id = 'lightbox-card';
+    lbImgEl.parentNode.insertBefore(lbCard, lbImgEl);
+    lbCard.appendChild(lbImgEl);
+    lbCard.insertAdjacentHTML('beforeend', '<div class="lb-holo"></div><div class="lb-glare"></div>');
+
+    function resetLightboxTilt() {
+      lbCard.classList.remove('tracking');
+      lbCard.style.setProperty('--rot-x', '0deg');
+      lbCard.style.setProperty('--rot-y', '0deg');
+      lbCard.style.setProperty('--mouse-x', 0.5);
+      lbCard.style.setProperty('--mouse-y', 0.5);
+    }
+
+    // On enrobe openLightbox (sans toucher à son code) pour activer l'effet selon la rareté
+    const _openLightbox = openLightbox;
+    openLightbox = function (cardData) {
+      _openLightbox(cardData);
+      resetLightboxTilt();
+      lbCard.dataset.rarity = cardData.rarity;
+      lbCard.classList.toggle('is-holo', HOLO_RARITIES.includes(cardData.rarity));
+    };
+
+    lbCard.addEventListener('pointermove', e => {
+      if (!lbCard.classList.contains('is-holo')) return;
+      const rect = lbCard.getBoundingClientRect();
+      // Position du pointeur en pourcentage (0 à 1) sur la carte
+      const x = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+      const y = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+      lbCard.classList.add('tracking');
+      lbCard.style.setProperty('--rot-y', `${(x - 0.5) * 24}deg`);
+      lbCard.style.setProperty('--rot-x', `${(0.5 - y) * 24}deg`);
+      lbCard.style.setProperty('--mouse-x', x);
+      lbCard.style.setProperty('--mouse-y', y);
+    });
+    lbCard.addEventListener('pointerleave', resetLightboxTilt);
+    lbCard.addEventListener('pointercancel', resetLightboxTilt);
+  </script>
+</body>
+</html>
