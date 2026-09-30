@@ -812,22 +812,17 @@
       return rand < 3 ? 'holo' : rand < 15 ? 'rare' : rand < 45 ? 'uncommon' : 'common';
     }
 
+    
     // Un type est autorisé tant que le quota du booster n'est pas atteint
-    function isTypeAllowed(type, typeCounts) {
+    function isTypeAllowed(type, typeCounts, isLastCard) {
+      if (isLastCard) {
+        return true;
+      }
       const max = CARD_TYPES[type]?.maxPerPack;
       return max == null || (typeCounts[type] || 0) < max;
     }
-/*
-    // La rareté est tirée d'abord (taux de drop), puis une carte de cette rareté
-    // parmi les types encore autorisés
-    function createCardData(rarity, typeCounts) {
-      const allowed = CARD_DATABASE.filter(c => isTypeAllowed(c.type, typeCounts));
-      const pool = allowed.filter(c => c.rarity === rarity);
-      const card = getRandomItem(pool.length ? pool : allowed);
-      return { ...card, rarity };
-    }
-*/
-    function createCardData(rarity, typeCounts) {
+
+    function createCardData(rarity, typeCounts, isLastCard) {
       const allowed = CARD_DATABASE.filter(c => isTypeAllowed(c.type, typeCounts));
       const pool = allowed.filter(c => c.rarity === rarity);
       
@@ -922,7 +917,7 @@
     function buildCardStack() {
       const typeCounts = {};
       currentCards = [0, 1, 2, 3, 4].map(i => {
-        const card = createCardData(rollRarity(i === 4), typeCounts);
+        const card = createCardData(rollRarity(i === 4), typeCounts, i === 4);
         typeCounts[card.type] = (typeCounts[card.type] || 0) + 1;
         return card;
       });
