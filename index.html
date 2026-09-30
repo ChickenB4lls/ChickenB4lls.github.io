@@ -1079,9 +1079,9 @@
             isBusy = false;
             addCardToTray(cardData);
             completeBoosterSession();
-          }, 400);
+          }, 300);
         } else {
-          setTimeout(() => isBusy = false, 500);
+          setTimeout(() => isBusy = false, 300);
         }
         
 
@@ -1113,7 +1113,7 @@
           setTimeout(() => {
             isBusy = false;
             if (currentIndex >= currentCards.length) completeBoosterSession();
-          }, 400);
+          }, 300);
 
           updateUIInfo();
         }
