@@ -384,7 +384,12 @@
       background-position: calc(var(--mouse-x, 0.5) * 100%) calc(var(--mouse-y, 0.5) * 100%);
     }
 
-    .rarity-holo .holo-effect, 
+    .rarity-holo .holo-effect {
+      opacity: 1;
+    } 
+    .rarity-legendary .holo-effect {
+      opacity: 1; 
+    }
     .rarity-ultra .holo-effect {
       opacity: 1;
       mix-blend-mode: overlay; /* 'overlay' ou 'hard-light' rend mieux l'effet métal/miroir */
