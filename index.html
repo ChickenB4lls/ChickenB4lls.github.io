@@ -385,14 +385,42 @@
     }
 
     .rarity-holo .holo-effect, 
-    .rarity-legendary .holo-effect { opacity: 1; }
+    .rarity-ultra .holo-effect {
+      opacity: 1;
+      mix-blend-mode: overlay; /* 'overlay' ou 'hard-light' rend mieux l'effet métal/miroir */
+      background: linear-gradient(
+        115deg, 
+        transparent 10%, 
+        rgba(255, 255, 255, 0.8) 30%, 
+        rgba(140, 140, 140, 0.5) 45%, 
+        rgba(220, 220, 220, 0.8) 60%, 
+        transparent 100%
+      );
+      background-size: 200% 200%;
+      background-position: calc(var(--mouse-x, 0.5) * 100%) calc(var(--mouse-y, 0.5) * 100%);
+    }
     .rarity-rare .holo-effect { opacity: 0.45; }
 
-    /* Halo lumineux autour de la carte selon sa rareté */
     .card.is-flipped[data-rarity="rare"] .card-front { box-shadow: 0 0 5px #3b8cff; }
     .card.is-flipped[data-rarity="holo"] .card-front { box-shadow: 0 0 10px #c94bff; }
     .card.is-flipped[data-rarity="ultra"] .card-front { box-shadow: 0 0 10px #ff2a8d; }
     .card.is-flipped[data-rarity="legendary"] .card-front { box-shadow: 0 0 15px #f0b420; }
+
+    #lightbox-card[data-rarity="ultra"] .lb-holo {
+      mix-blend-mode: overlay;
+      background: linear-gradient(
+        115deg, 
+        transparent 10%, 
+        rgba(255, 255, 255, 0.8) 30%, 
+        rgba(140, 140, 140, 0.5) 45%, 
+        rgba(220, 220, 220, 0.8) 60%, 
+        transparent 100%
+      );
+      background-size: 200% 200%;
+      opacity: 0.95;
+    }
+
+
 
     @media (max-height: 640px) {
       #stage { transform: scale(0.85); }
