@@ -742,12 +742,6 @@
         type: 'pokemon',
         rarity: 'common', 
         img: 'cartes/eilodna.png'
-      },
-      { 
-        name: 'Seb la frite', 
-        rarity: 'legendary', 
-        type: 'trainer',
-        img: 'cartes/frite.png'
       },/*
       { 
         name: 'Mega Yerdua EX', 
@@ -772,6 +766,12 @@
         rarity: 'common', 
         type: 'energy',
         img: 'cartes/java.png'
+      },
+      { 
+        name: 'Seb la frite', 
+        rarity: 'legendary', 
+        type: 'trainer',
+        img: 'cartes/frite.png'
       },
       { 
         name: 'PHP', 
@@ -1050,7 +1050,7 @@
     }
 
     function createCardData(rarity, typeCounts, isLastCard) {
-      const allowed = CARD_DATABASE.filter(c => isTypeAllowed(c.type, typeCounts, isLastCard));
+      const allowed = CARD_DATABASE.filter(c => isTypeAllowed(c.type, typeCounts));
       const pool = allowed.filter(c => c.rarity === rarity);
       
       // Si le pool correspond à la rareté demandée n'est pas vide, on l'utilise.
@@ -1529,125 +1529,5 @@
     lbCard.addEventListener('pointerleave', resetLightboxTilt);
     lbCard.addEventListener('pointercancel', resetLightboxTilt);
   </script>
-
-  <!-- ==========================================================================
-       ÉTOILES MULTICOLORES À L'OUVERTURE (dernière carte ultra ou légendaire)
-       Bloc ajouté : aucun code existant n'est modifié.
-       ========================================================================== -->
-  <style>
-    #star-burst {
-      position: fixed;
-      inset: 0;
-      z-index: 120; /* au-dessus du flash (100), sous l'aperçu agrandi (200) */
-      pointer-events: none;
-      overflow: hidden;
-    }
-
-    /* Conteneur : gère le déplacement et la lueur */
-    .burst-star {
-      position: absolute;
-      width: var(--s);
-      height: var(--s);
-      margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2);
-      opacity: 0;
-      filter: drop-shadow(0 0 3px var(--c)) drop-shadow(0 0 7px var(--c));
-      animation: starFly var(--d) cubic-bezier(0.15, 0.7, 0.35, 1) var(--delay) forwards;
-    }
-
-    /* Étoile : forme, cœur blanc brillant et scintillement */
-    .burst-star::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(circle, #ffffff 0%, #ffffff 22%, var(--c) 62%);
-      clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
-      animation: starTwinkle var(--tw) ease-in-out var(--delay) infinite;
-    }
-
-    @keyframes starFly {
-      0%   { opacity: 0; transform: translate(0, 0) scale(0.2); }
-      12%  { opacity: 1; transform: translate(calc(var(--dx) * 0.25), calc(var(--dy) * 0.25)) scale(1); }
-      100% { opacity: 0; transform: translate(var(--dx), calc(var(--dy) + var(--fall))) scale(0.35); }
-    }
-
-    @keyframes starTwinkle {
-      0%, 100% { transform: rotate(0deg) scale(1);      filter: brightness(1); }
-      50%      { transform: rotate(50deg) scale(0.55);  filter: brightness(2); }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      #star-burst { display: none; }
-    }
-  </style>
-
-  <script>
-    (function () {
-      let nextLastRarity = null;
-
-      const _rollRarity = rollRarity;
-      const _executeOpeningAnimation = executeOpeningAnimation;
-
-      // Le tirage de la dernière carte est fait au moment de l'ouverture (même fonction,
-      // mêmes probabilités) afin de savoir à l'avance si l'animation doit se déclencher.
-      // La valeur est ensuite réutilisée telle quelle par buildCardStack().
-      rollRarity = function (isLastCard) {
-        if (isLastCard && nextLastRarity) {
-          const rarity = nextLastRarity;
-          nextLastRarity = null;
-          return rarity;
-        }
-        return _rollRarity(isLastCard);
-      };
-
-      executeOpeningAnimation = function (pack, flap, tearLine) {
-        nextLastRarity = _rollRarity(true);
-        if (nextLastRarity === 'ultra' || nextLastRarity === 'legendary') {
-          launchStarBurst(pack);
-        }
-        return _executeOpeningAnimation(pack, flap, tearLine);
-      };
-
-      function launchStarBurst(pack) {
-        const rect = pack.getBoundingClientRect();
-        const layer = document.createElement('div');
-        layer.id = 'star-burst';
-        document.body.appendChild(layer);
-
-        const rand = (min, max) => min + Math.random() * (max - min);
-        const STAR_COUNT = 46;
-
-        for (let i = 0; i < STAR_COUNT; i++) {
-          const star = document.createElement('div');
-          star.className = 'burst-star';
-
-          // Départ : le long de la déchirure, en haut du booster
-          const x = rect.left + rect.width * rand(0.1, 0.9);
-          const y = rect.top + 48;
-
-          // Direction : surtout vers le haut, en éventail
-          const angle = rand(-165, -15) * Math.PI / 180;
-          const dist = rand(120, 360);
-          const hue = Math.floor(rand(0, 360));
-
-          star.style.left = `${x}px`;
-          star.style.top = `${y}px`;
-          star.style.setProperty('--s', `${rand(9, 20).toFixed(1)}px`);
-          star.style.setProperty('--c', `hsl(${hue}, 100%, 60%)`);
-          star.style.setProperty('--dx', `${(Math.cos(angle) * dist).toFixed(1)}px`);
-          star.style.setProperty('--dy', `${(Math.sin(angle) * dist).toFixed(1)}px`);
-          star.style.setProperty('--fall', `${rand(60, 170).toFixed(1)}px`);
-          star.style.setProperty('--d', `${rand(1.3, 2.3).toFixed(2)}s`);
-          star.style.setProperty('--delay', `${rand(0, 0.3).toFixed(2)}s`);
-          star.style.setProperty('--tw', `${rand(0.35, 0.7).toFixed(2)}s`);
-
-          layer.appendChild(star);
-        }
-
-        // Nettoyage une fois toutes les étoiles terminées (durée max + délai max)
-        setTimeout(() => layer.remove(), 2800);
-      }
-    })();
-  </script>
-
 </body>
 </html>
