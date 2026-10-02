@@ -675,9 +675,9 @@
 
     // Types de cartes et nombre maximum par booster (null = illimité)
     const CARD_TYPES = {
-      pokemon: { name: 'Pokémon',  maxPerPack: null },
-      trainer: { name: 'Dresseur', maxPerPack: 1 },
-      energy:  { name: 'Énergie',  maxPerPack: 1 }
+      pokemon: { name: 'Pokémon'},
+      trainer: { name: 'Dresseur'},
+      energy:  { name: 'Énergie'}
     };
 
     const RARITY_ORDER = {
@@ -1020,11 +1020,15 @@
 
     // Un type est autorisé tant que le quota du booster n'est pas atteint
     function isTypeAllowed(type, typeCounts, isLastCard) {
-      if (isLastCard) {
-        return true;
+      if (isLastCard) return true;
+
+      // Si c'est un dresseur ou une énergie, on vérifie si l'un des deux a déjà été tiré
+      if (type === 'trainer' || type === 'energy') {
+        const specialCount = (typeCounts['trainer'] || 0) + (typeCounts['energy'] || 0);
+        return specialCount < 1;
       }
-      const max = CARD_TYPES[type]?.maxPerPack;
-      return max == null || (typeCounts[type] || 0) < max;
+
+      return true;
     }
 
     function createCardData(rarity, typeCounts, isLastCard) {
