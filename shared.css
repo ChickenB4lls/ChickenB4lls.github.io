@@ -1,0 +1,89 @@
+:root {
+  --bg-color: #e5faff;
+  --text-muted: #7b8ca0;
+  --grad: linear-gradient(135deg, #3fc8e8, #fae89c);
+  --booster-img: url('booster.jpeg');
+  --card-back-img: url('dos.png');
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body.site {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(ellipse at 50% 30%, #ffffff, var(--bg-color) 75%) fixed;
+  color: var(--text-muted);
+  font-family: "Trebuchet MS", system-ui, -apple-system, sans-serif;
+  padding: calc(env(safe-area-inset-top, 0px) + 70px) 16px calc(env(safe-area-inset-bottom, 0px) + 32px);
+}
+.wrap { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+.title { margin: 0; text-align: center; font-size: 26px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-muted); }
+
+.panel {
+  background: rgba(255, 255, 255, 0.78);
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 4px 14px rgba(63, 200, 232, 0.2);
+}
+
+.btn {
+  background: var(--grad);
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  border: none;
+  border-radius: 30px;
+  padding: 12px 28px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.btn:hover:not(:disabled) { transform: scale(1.05); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+a.btn { display: inline-block; text-decoration: none; }
+
+/* Barre fixe : navigation + solde de points */
+.hud {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  left: 12px;
+  z-index: 60;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.hud a, .hud .pts {
+  border-radius: 20px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 2px 6px rgba(63, 200, 232, 0.3);
+}
+/* --- Fichier: shared.css (APRÈS modification) --- */
+.hud a { background: rgba(255, 255, 255, 0.9); color: var(--text-muted); }
+
+/* Modification pour intégrer la pièce */
+.hud .pts {
+  background: var(--grad);
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  display: flex; /* Aligne l'icône et le texte verticalement */
+  align-items: center;
+  gap: 6px; /* Espace entre la pièce et le texte "pts" */
+  padding: 6px 14px; /* Ajustement léger du padding pour l'icône */
+}
+
+/* Règle pour afficher l'icône de la pièce */
+.hud .pts::before {
+  content: ""; /* Obligatoire pour un pseudo-élément */
+  display: inline-block;
+  width: 20px; /* Taille de l'icône à l'écran */
+  height: 20px;
+  background-image: url('piece_tcg.png'); /* Chemin vers votre image */
+  background-size: contain; /* S'assure que toute la pièce est visible */
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+@media (max-width: 600px) { .hud a span { display: none; } .hud a { padding: 8px 12px; } }
