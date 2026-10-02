@@ -742,13 +742,13 @@
         type: 'pokemon',
         rarity: 'common', 
         img: 'cartes/eilodna.png'
-      },
+      },/*
       { 
         name: 'Mega Yerdua EX', 
         type: 'pokemon',
         rarity: 'legendary', 
         img: 'cartes/mega_yerdua.png'
-      },
+      },*/
       { 
         name: 'Yerdua', 
         type: 'pokemon',
@@ -997,25 +997,25 @@
     const getRandomItem = arr => arr[Math.floor(Math.random() * arr.length)];
 
     function rollRarity(isLastCard) {
-  const rand = Math.random() * 100;
+        const rand = Math.random() * 100;
 
-    if (isLastCard) {
-    // Carte garantie / slot de fin (ex: Rare ou supérieur)
-    return rand < 1 ? 'legendary'  // 1% (0 à 0.99)
-        : rand < 5 ? 'ultra'      // 3% (1 à 3.99)
-        : rand < 10 ? 'fa'         // 6% (4 à 9.99)
-        : rand < 40 ? 'holo'      // 30% (10 à 39.99)
-        : 'rare';                 // 60% (40 à 99.99)
-  }
+        if (isLastCard) {
+          // Carte garantie / slot de fin (Full Art passe de 6% à 5%)
+          return rand < 1 ? 'legendary'  // 1%
+              : rand < 5 ? 'ultra'      // 4%
+              : rand < 10 ? 'fa'        // 5% (de 5 à 9.99)
+              : rand < 40 ? 'holo'      // 30%
+              : 'rare';                 // 60%
+        }
 
-  // Cartes standard du booster
-  return rand < 0.5 ? 'ultra'     // 0.5% (0 à 0.49)
-      : rand < 1 ? 'fa'  // 1% (0.5 à 1.49)
-      : rand < 5 ? 'holo'        // 3.5% (1.5 à 4.99)
-      : rand < 15 ? 'rare'       // 10% (5 à 14.99)
-      : rand < 45 ? 'uncommon'   // 30% (15 à 44.99)
-      : 'common';                // 55% (45 à 99.99)
-  }
+        // Cartes 1 à 4 (Full Art passe de 1% à 0.5%)
+        return rand < 0.5 ? 'ultra'     // 0.5%
+            : rand < 1 ? 'fa'           // 0.5% (de 0.5 à 0.99)
+            : rand < 5 ? 'holo'         // 4%
+            : rand < 15 ? 'rare'        // 10%
+            : rand < 45 ? 'uncommon'    // 30%
+            : 'common';                 // 55%
+      }
 
 
     // Un type est autorisé tant que le quota du booster n'est pas atteint
