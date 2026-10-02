@@ -1020,9 +1020,9 @@
         if (isLastCard) {
           // Carte garantie / slot de fin (Full Art passe de 6% à 5%)
           return rand < 1 ? 'legendary'  // 1%
-              : rand < 5 ? 'ultra'      // 4%
-              : rand < 10 ? 'fa'        // 5% (de 5 à 9.99)
-              : rand < 40 ? 'holo'      // 30%
+              : rand < 7 ? 'ultra'      // 4%
+              : rand < 12 ? 'fa'        // 5% (de 5 à 9.99)
+              : rand < 45 ? 'holo'      // 30%
               : 'rare';                 // 60%
         }
 
