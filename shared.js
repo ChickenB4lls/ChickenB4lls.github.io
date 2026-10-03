@@ -55,7 +55,8 @@ function buildHud() {
   const links = [
     ['index.html', 'Accueil', 'home'],
     ['boosters.html', 'Boosters', 'boosters'],
-    ['casino.html', 'Casino', 'casino']
+    ['casino.html', 'Casino', 'casino'],
+    ['minijeux.html', 'Mini-jeux', 'arcade']
   ].filter(l => page !== 'home' && l[2] !== page);
 
   const hud = document.createElement('div');

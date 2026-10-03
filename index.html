@@ -62,6 +62,14 @@
       /* Petite ombre pour la faire ressortir */
       filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
     }
+      .tile-wide { grid-column: 1 / -1; }
+    .arcade-tile {
+      background-image: url('jeux.jpeg'); /* Nom de votre fichier image */
+      background-size: cover;
+      background-position: top center;
+      border-radius: 12px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
   </style>
 </head>
 <body class="site" data-hud="home">
@@ -87,6 +95,10 @@
       <a class="panel tile" href="casino.html">
         <div class="tile-img casino-tile"></div>
         <h2>Casino</h2><p>Mise tes points !</p>
+      </a>
+      <a class="panel tile tile-wide" href="minijeux.html">
+        <div class="tile-img arcade-tile"></div>
+        <h2>Mini-jeux</h2><p>Gagne des points !</p>
       </a>
     </div>
   </main>

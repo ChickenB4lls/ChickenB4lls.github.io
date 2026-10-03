@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Mini-jeux - TCG IUT</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="stylesheet" href="shared.css">
+  <script src="shared.js"></script>
+  <style>
+    .tabs { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+    .tab { font: inherit; font-weight: 700; cursor: pointer; border: 2px solid rgba(63,200,232,0.45);
+      background: rgba(255,255,255,0.9); color: var(--text-muted); border-radius: 20px; padding: 8px 16px; }
+    .tab.on { background: var(--grad); color: #fff; border-color: transparent; text-shadow: 0 1px 2px rgba(0,0,0,0.25); }
+    .tab:disabled { opacity: 0.45; cursor: not-allowed; }
+    .info { display: flex; justify-content: space-around; text-align: center; gap: 10px; padding: 14px 20px; }
+    .info b { display: block; font-size: 22px; color: #3fc8e8; }
+    .info span { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+    .stage { position: relative; width: 100%; max-width: 360px; margin: 0 auto; }
+    #cv { display: block; width: 100%; aspect-ratio: 360 / 420; border-radius: 14px; border: 3px solid #3fc8e8;
+      background: #16324a; touch-action: none; }
+    .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 8px; padding: 20px; text-align: center; color: #fff; background: rgba(15,42,61,0.82); border-radius: 14px; }
+    .overlay[hidden] { display: none; }
+    .overlay h2 { margin: 0; font-size: 24px; letter-spacing: 2px; text-transform: uppercase; }
+    .overlay p { margin: 0 0 6px; font-size: 14px; line-height: 1.4; }
+    .overlay .gain { font-size: 28px; font-weight: bold; color: #fae89c; }
+    .help { font-size: 12px; text-align: center; margin: 14px 0 0; line-height: 1.5; }
+    .dpad { display: none; grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(2, 48px); gap: 6px;
+      justify-content: center; margin-top: 14px; }
+    .dpad.on { display: grid; }
+    .dpad button { font-size: 20px; border: none; border-radius: 12px; background: var(--grad); color: #fff; cursor: pointer; }
+    .dpad button:active { transform: scale(0.92); }
+    .dpad .u { grid-column: 2; grid-row: 1; } .dpad .l { grid-column: 1; grid-row: 2; }
+    .dpad .d { grid-column: 2; grid-row: 2; } .dpad .r { grid-column: 3; grid-row: 2; }
+    @media (hover: hover) and (pointer: fine) { .dpad.on { display: none; } }
+  </style>
+</head>
+<body class="site" data-hud="arcade">
+  <main class="wrap">
+    <h1 class="title">Mini-jeux</h1>
+
+    <div class="tabs" id="tabs">
+      <button class="tab on" data-g="snake">Snake</button>
+      <button class="tab" data-g="pong">Pong</button>
+      <button class="tab" data-g="brick">Casse-briques</button>
+    </div>
+
+    <section class="panel info">
+      <div><b id="i-score">0</b><span>Score</span></div>
+      <div><b id="i-best">0</b><span>Record</span></div>
+      <div><b id="i-day">0/30</b><span>Gagné aujourd'hui</span></div>
+    </section>
+
+    <section class="panel">
+      <div class="stage">
+        <canvas id="cv" width="360" height="420"></canvas>
+        <div class="overlay" id="ov">
+          <h2 id="ov-title"></h2>
+          <p id="ov-text"></p>
+          <div class="gain" id="ov-gain"></div>
+          <button class="btn" id="play">Jouer</button>
+        </div>
+      </div>
+      <div class="dpad" id="dpad">
+        <button class="u" data-d="0,-1">▲</button><button class="l" data-d="-1,0">◀</button>
+        <button class="d" data-d="0,1">▼</button><button class="r" data-d="1,0">▶</button>
+      </div>
+      <p class="help" id="help"></p>
+    </section>
+  </main>
+
+  <script>
+    const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+    const W = 360, H = 420, CAP = 30; // CAP = points max gagnables par jeu et par jour
+    const cv = $('#cv'), ctx = cv.getContext('2d');
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const today = () => new Date().toLocaleDateString('sv-SE');
+    const rd = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } };
+    const wr = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+    const earned = id => { const e = rd('arcadeEarned_v1', {}); return e.date === today() ? (e[id] || 0) : 0; };
+    const addEarned = (id, n) => { let e = rd('arcadeEarned_v1', {}); if (e.date !== today()) e = { date: today() }; e[id] = (e[id] || 0) + n; wr('arcadeEarned_v1', e); };
+    const best = id => rd('arcadeBest_v1', {})[id] || 0;
+    const setBest = (id, n) => { const b = rd('arcadeBest_v1', {}); b[id] = n; wr('arcadeBest_v1', b); };
+
+    let kx = 0; // direction clavier gauche/droite pour Pong et Casse-briques
+    function bg() { ctx.fillStyle = '#16324a'; ctx.fillRect(0, 0, W, H); }
+    function hud(score, lives) {
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 14px "Trebuchet MS", sans-serif'; ctx.textBaseline = 'top';
+      ctx.textAlign = 'left'; ctx.fillText('Score ' + score, 8, 4);
+      if (lives !== undefined) { ctx.textAlign = 'right'; ctx.fillStyle = '#ff6b8a'; ctx.fillText('♥'.repeat(lives), W - 8, 4); }
+    }
+    function rr(x, y, w, h, r, fill) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fillStyle = fill; ctx.fill(); }
+
+    /* ================= SNAKE ================= */
+    function makeSnake() {
+      const C = 20, cols = 18, rows = 21;
+      let sn = [{ x: 9, y: 10 }, { x: 8, y: 10 }, { x: 7, y: 10 }], dir = { x: 1, y: 0 }, q = [], acc = 0, st = 0.14, score = 0, over = false, food;
+      const spawn = () => { do { food = { x: Math.random() * cols | 0, y: Math.random() * rows | 0 }; } while (sn.some(p => p.x === food.x && p.y === food.y)); };
+      spawn();
+      return {
+        get score() { return score; }, get over() { return over; },
+        turn(dx, dy) {
+          const l = q.length ? q[q.length - 1] : dir;
+          if ((l.x === -dx && l.y === -dy) || (l.x === dx && l.y === dy)) return;
+          if (q.length < 3) q.push({ x: dx, y: dy });
+        },
+        update(dt) {
+          acc += dt;
+          while (acc >= st && !over) {
+            acc -= st; if (q.length) dir = q.shift();
+            const h = { x: sn[0].x + dir.x, y: sn[0].y + dir.y };
+            const eat = h.x === food.x && h.y === food.y;
+            const body = eat ? sn : sn.slice(0, -1);
+            if (h.x < 0 || h.y < 0 || h.x >= cols || h.y >= rows || body.some(p => p.x === h.x && p.y === h.y)) { over = true; break; }
+            sn.unshift(h);
+            if (eat) { score++; st = Math.max(0.07, st - 0.003); spawn(); } else sn.pop();
+          }
+        },
+        draw() {
+          bg();
+          ctx.fillStyle = 'rgba(255,255,255,0.04)';
+          for (let x = 0; x < cols; x++) for (let y = 0; y < rows; y++) if ((x + y) % 2) ctx.fillRect(x * C, y * C, C, C);
+          ctx.beginPath(); ctx.arc(food.x * C + C / 2, food.y * C + C / 2, C / 2 - 3, 0, 7); ctx.fillStyle = '#f0b420'; ctx.fill();
+          sn.forEach((p, i) => rr(p.x * C + 1, p.y * C + 1, C - 2, C - 2, 6, i ? '#3fc8e8' : '#fae89c'));
+          hud(score);
+        }
+      };
+    }
+
+    /* ================= PONG (vertical, contre l'IA) ================= */
+    function makePong() {
+      const pw = 72, ph = 10, py = H - 26, ay = 16, r = 6;
+      let px = W / 2, tx = px, ax = W / 2, score = 0, lives = 3, over = false, s = 230, b, wait = 0.8;
+      const serve = dir => { s = 230; b = { x: W / 2, y: H / 2, vx: (Math.random() - 0.5) * 120, vy: dir * s }; wait = 0.8; };
+      serve(1);
+      const bounce = (p, dir) => { const rel = clamp((b.x - p) / (pw / 2), -1, 1), a = rel * 1.0; b.vx = s * Math.sin(a); b.vy = dir * s * Math.cos(a); };
+      return {
+        get score() { return score; }, get over() { return over; },
+        moveTo(x) { tx = x; },
+        update(dt) {
+          if (kx) tx += kx * 420 * dt;
+          tx = clamp(tx, pw / 2, W - pw / 2);
+          px += clamp(tx - px, -750 * dt, 750 * dt);
+          const ai = Math.min(280, 165 + score * 5);
+          const target = b.vy < 0 ? b.x : W / 2;
+          ax = clamp(ax + clamp(target - ax, -ai * dt, ai * dt), pw / 2, W - pw / 2);
+          if (wait > 0) { wait -= dt; return; }
+          b.x += b.vx * dt; b.y += b.vy * dt;
+          if (b.x < r) { b.x = r; b.vx = Math.abs(b.vx); }
+          if (b.x > W - r) { b.x = W - r; b.vx = -Math.abs(b.vx); }
+          if (b.vy > 0 && b.y + r >= py && b.y + r <= py + ph + 10 && Math.abs(b.x - px) <= pw / 2 + r) { s = Math.min(460, s + 14); bounce(px, -1); b.y = py - r; }
+          if (b.vy < 0 && b.y - r <= ay + ph && b.y - r >= ay - 10 && Math.abs(b.x - ax) <= pw / 2 + r) { s = Math.min(460, s + 14); bounce(ax, 1); b.y = ay + ph + r; }
+          if (b.y < -r) { score++; serve(1); }
+          else if (b.y > H + r) { lives--; if (lives <= 0) over = true; else serve(-1); }
+        },
+        draw() {
+          bg();
+          ctx.setLineDash([10, 10]); ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke(); ctx.setLineDash([]);
+          rr(ax - pw / 2, ay, pw, ph, 5, '#f0b420');
+          rr(px - pw / 2, py, pw, ph, 5, '#3fc8e8');
+          ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, 7); ctx.fillStyle = '#fff'; ctx.fill();
+          hud(score, lives);
+        }
+      };
+    }
+
+    /* ================= CASSE-BRIQUES ================= */
+    function makeBrick() {
+      const pw = 64, py = H - 30, r = 5, cols = 8, bw = 39, bh = 14, gap = 5, ox = (W - (cols * (bw + gap) - gap)) / 2, oy = 40;
+      const colors = ['#ff6b8a', '#f0b420', '#fae89c', '#3fc8e8', '#7be0b0'];
+      let px = W / 2, tx = px, score = 0, lives = 3, over = false, level = 0, bricks = [], b, wait = 1;
+      const spd = () => 290 + level * 35;
+      const build = () => { bricks = []; for (let y = 0; y < 5; y++) for (let x = 0; x < cols; x++) bricks.push({ x: ox + x * (bw + gap), y: oy + y * (bh + gap), c: colors[y] }); };
+      const reset = () => { b = { x: px, y: py - r - 1, vx: (Math.random() < 0.5 ? -1 : 1) * 110, vy: 0 }; wait = 0.9; };
+      build(); reset();
+      return {
+        get score() { return score; }, get over() { return over; },
+        moveTo(x) { tx = x; },
+        update(dt) {
+          if (kx) tx += kx * 420 * dt;
+          tx = clamp(tx, pw / 2, W - pw / 2);
+          px += clamp(tx - px, -750 * dt, 750 * dt);
+          if (wait > 0) { wait -= dt; b.x = px; b.y = py - r - 1; if (wait <= 0) { b.vy = -Math.sqrt(Math.max(1, spd() ** 2 - b.vx ** 2)); } return; }
+          b.x += b.vx * dt; b.y += b.vy * dt;
+          if (b.x < r) { b.x = r; b.vx = Math.abs(b.vx); }
+          if (b.x > W - r) { b.x = W - r; b.vx = -Math.abs(b.vx); }
+          if (b.y < r) { b.y = r; b.vy = Math.abs(b.vy); }
+          if (b.vy > 0 && b.y + r >= py && b.y + r <= py + 14 && Math.abs(b.x - px) <= pw / 2 + r) {
+            const a = clamp((b.x - px) / (pw / 2), -0.9, 0.9), v = spd();
+            b.vx = v * Math.sin(a); b.vy = -v * Math.cos(a); b.y = py - r;
+          }
+          for (let i = 0; i < bricks.length; i++) {
+            const k = bricks[i];
+            if (b.x + r > k.x && b.x - r < k.x + bw && b.y + r > k.y && b.y - r < k.y + bh) {
+              const m = Math.min(b.x + r - k.x, k.x + bw - (b.x - r), b.y + r - k.y, k.y + bh - (b.y - r));
+              if (m === b.y + r - k.y || m === k.y + bh - (b.y - r)) b.vy = -b.vy; else b.vx = -b.vx;
+              bricks.splice(i, 1); score++; break;
+            }
+          }
+          if (!bricks.length) { level++; build(); reset(); }
+          if (b.y > H + r) { lives--; if (lives <= 0) over = true; else reset(); }
+        },
+        draw() {
+          bg();
+          bricks.forEach(k => rr(k.x, k.y, bw, bh, 3, k.c));
+          rr(px - pw / 2, py, pw, 10, 5, '#3fc8e8');
+          ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, 7); ctx.fillStyle = '#fff'; ctx.fill();
+          hud(score, lives);
+        }
+      };
+    }
+
+    /* ================= Infos des jeux & récompenses ================= */
+    const META = {
+      snake: { make: makeSnake, reward: s => s, rule: '1 pt par pomme',
+        help: 'Flèches / ZQSD ou glisse le doigt sur l\'écran. Mange des pommes : <b>1 point par pomme</b>.' },
+      pong: { make: makePong, reward: s => s * 2, rule: '2 pts par point marqué',
+        help: 'Flèches / Q-D ou déplace la souris / le doigt. Marque contre l\'IA (3 vies) : <b>2 points par point marqué</b>.' },
+      brick: { make: makeBrick, reward: s => Math.floor(s / 3), rule: '1 pt pour 3 briques',
+        help: 'Flèches / Q-D ou déplace la souris / le doigt. Casse les briques (3 vies) : <b>1 point pour 3 briques</b>.' }
+    };
+    const NAMES = { snake: 'Snake', pong: 'Pong', brick: 'Casse-briques' };
+
+    let cur = 'snake', g = null, run = false, raf = 0, last = 0;
+
+    function refresh() {
+      $('#i-best').textContent = best(cur);
+      $('#i-day').textContent = earned(cur) + '/' + CAP;
+      $('#help').innerHTML = META[cur].help + '<br>Maximum ' + CAP + ' pts par jeu et par jour.';
+      $('#dpad').classList.toggle('on', cur === 'snake');
+    }
+    function idleScreen() {
+      bg(); ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.font = 'bold 40px "Trebuchet MS", sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(NAMES[cur], W / 2, H / 2);
+      $('#i-score').textContent = 0;
+      $('#ov-title').textContent = NAMES[cur]; $('#ov-text').textContent = META[cur].rule; $('#ov-gain').textContent = '';
+      $('#play').textContent = 'Jouer'; $('#ov').hidden = false;
+      refresh();
+    }
+    function frame(t) {
+      const dt = Math.min(0.05, (t - last) / 1000); last = t;
+      g.update(dt); g.draw();
+      $('#i-score').textContent = g.score;
+      if (g.over) return end();
+      raf = requestAnimationFrame(frame);
+    }
+    function start() {
+      if (run) return;
+      g = META[cur].make(); run = true; kx = 0;
+      $('#ov').hidden = true; $$('.tab').forEach(t => t.disabled = true);
+      last = performance.now(); raf = requestAnimationFrame(frame);
+    }
+    function end() {
+      run = false; $$('.tab').forEach(t => t.disabled = false);
+      const sc = g.score, want = META[cur].reward(sc), room = Math.max(0, CAP - earned(cur)), gain = Math.min(want, room);
+      if (gain > 0) { Wallet.add(gain); addEarned(cur, gain); }
+      const isRecord = sc > best(cur); if (isRecord) setBest(cur, sc);
+      $('#ov-title').textContent = 'Partie terminée';
+      $('#ov-text').textContent = 'Score : ' + sc + (isRecord && sc > 0 ? ' · Nouveau record !' : '') +
+        (want > gain ? ' · Plafond du jour atteint (' + CAP + ' pts)' : '');
+      $('#ov-gain').textContent = gain > 0 ? '+' + gain + ' pts' : '+0 pt';
+      $('#play').textContent = 'Rejouer'; $('#ov').hidden = false;
+      refresh();
+    }
+
+    $('#play').onclick = start;
+    $('#tabs').addEventListener('click', e => {
+      const t = e.target.closest('.tab'); if (!t || run) return;
+      cur = t.dataset.g; g = null;
+      $$('.tab').forEach(x => x.classList.toggle('on', x === t));
+      idleScreen();
+    });
+
+    /* ---------- Contrôles ---------- */
+    const KEYS = {
+      ArrowUp: [0, -1], w: [0, -1], z: [0, -1], ArrowDown: [0, 1], s: [0, 1],
+      ArrowLeft: [-1, 0], a: [-1, 0], q: [-1, 0], ArrowRight: [1, 0], d: [1, 0]
+    };
+    const held = new Set();
+    function updKx() { kx = [...held].reduce((s, k) => s + KEYS[k][0], 0); kx = clamp(kx, -1, 1); }
+    window.addEventListener('keydown', e => {
+      const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      if (!run || !KEYS[k]) return;
+      e.preventDefault();
+      held.add(k); updKx();
+      if (cur === 'snake') g.turn(...KEYS[k]);
+    });
+    window.addEventListener('keyup', e => { held.delete(e.key.length === 1 ? e.key.toLowerCase() : e.key); updKx(); });
+
+    const px2 = e => { const r = cv.getBoundingClientRect(); return (e.clientX - r.left) * W / r.width; };
+    let sw = null;
+    cv.addEventListener('pointerdown', e => { sw = { x: e.clientX, y: e.clientY }; if (run && g.moveTo) g.moveTo(px2(e)); });
+    cv.addEventListener('pointermove', e => {
+      if (!run) return;
+      if (g.moveTo) g.moveTo(px2(e));
+      else if (sw && cur === 'snake') {
+        const dx = e.clientX - sw.x, dy = e.clientY - sw.y;
+        if (Math.hypot(dx, dy) > 24) {
+          if (Math.abs(dx) > Math.abs(dy)) g.turn(Math.sign(dx), 0); else g.turn(0, Math.sign(dy));
+          sw = { x: e.clientX, y: e.clientY };
+        }
+      }
+    });
+    window.addEventListener('pointerup', () => sw = null);
+    $('#dpad').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b || !run || cur !== 'snake') return;
+      g.turn(...b.dataset.d.split(',').map(Number));
+    });
+    window.addEventListener('wallet', refresh);
+
+    idleScreen();
+  </script>
+</body>
+</html>
