@@ -49,6 +49,16 @@
     .hist span { width: 26px; height: 26px; border-radius: 50%; font-size: 12px; font-weight: bold; color: #fff;
       display: flex; align-items: center; justify-content: center; }
     .hist .r { background: #d63a5a; } .hist .b { background: #33404d; } .hist .g { background: #2fae6a; }
+
+    /* Mines */
+    .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; max-width: 320px; margin: 0 auto 14px; }
+    .tile { aspect-ratio: 1; font-size: 28px; padding: 0; cursor: pointer; border: 2px solid rgba(63,200,232,0.45);
+      background: #3fc8e8; border-radius: 12px; opacity: 0.7; transition: 0.4s;}
+    .tile:disabled { cursor: default; }
+    .tile:not(:disabled):hover { opacity: 1; transform: scale(1.1); }
+    .tile.safe { background: #d8f5e4; border-color: #2fae6a; }
+    .tile.mine { background: #fbd3dc; border-color: #d6506e; }
+    .tile.dim { opacity: 0.5; }
   </style>
 </head>
 <body class="site" data-hud="casino">
@@ -59,6 +69,7 @@
       <button class="tab on" data-g="slots">Machine à sous</button>
       <button class="tab" data-g="bj">Blackjack</button>
       <button class="tab" data-g="rou">Roulette</button>
+      <button class="tab" data-g="mines">Mines</button>
     </div>
 
     <section class="panel bar">
@@ -101,6 +112,19 @@
       <div class="hist" id="hist"></div>
       <div class="msg" id="m-rou"></div>
     </section>
+
+    <!-- MINES -->
+    <section class="panel game" id="g-mines">
+      <div class="label">Mines</div>
+      <div class="opts" id="mn-opts" style="margin-top:8px"></div>
+      <div class="grid" id="mn-grid"></div>
+      <div class="small" id="mn-info"></div>
+      <div class="actions">
+        <button class="btn" id="mn-start">Jouer</button>
+        <button class="btn" id="mn-cash" hidden>Encaisser</button>
+      </div>
+      <div class="msg" id="m-mines"></div>
+    </section>
   </main>
 
   <script>
@@ -121,7 +145,8 @@
       busy = b; 
       $$('.tab').forEach(t => t.disabled = b); 
       renderChips(); 
-      renderOpts(); // <--- Ajoute cette ligne
+      renderOpts();
+      renderMines();
     }
     function say(id, txt, gain) { const m = $('#' + id); m.textContent = txt; m.className = 'msg' + (gain === undefined ? '' : gain > 0 ? ' win' : ' lose'); }
     const fmt = n => (n > 0 ? '+' : '') + n;
@@ -260,7 +285,54 @@
       say('m-rou', win ? `${n} — Gagné ! ${fmt(win - stakeR)} pts` : `${n} — Perdu… ${fmt(-stakeR)} pts`, win - stakeR);
     };
 
-    renderChips(); renderOpts();
+
+    /* ---------- Mines (grille 5×5) ---------- */
+    const MCOUNTS = [1, 3, 5, 10, 15];
+    let mc = 3, mines = new Set(), opened = new Set(), mLive = false, mStake = 0, hit = -1;
+    // multiplicateur après k cases sûres (avantage maison 3 %)
+    const mMult = k => { let m = 0.97; for (let i = 0; i < k; i++) m *= (25 - i) / (25 - mc - i); return m; };
+
+    function renderMines(end) {
+      $('#mn-opts').innerHTML = MCOUNTS.map(n => `<button class="opt${n === mc ? ' on' : ''}" data-n="${n}" ${busy ? 'disabled' : ''}>${n} 💣</button>`).join('');
+      let h = '';
+      for (let i = 0; i < 25; i++) {
+        if (opened.has(i)) h += '<button class="tile safe" disabled>💎</button>';
+        else if (end && mines.has(i)) h += `<button class="tile mine${i === hit ? '' : ' dim'}" disabled>💣</button>`;
+        else h += `<button class="tile" data-i="${i}" ${mLive ? '' : 'disabled'}></button>`;
+      }
+      $('#mn-grid').innerHTML = h;
+      $('#mn-start').hidden = mLive; $('#mn-cash').hidden = !mLive;
+      if (mLive) {
+        const k = opened.size, cur = Math.floor(mStake * mMult(k));
+        $('#mn-cash').disabled = k === 0;
+        $('#mn-cash').textContent = k ? `Encaisser ${cur} pts` : 'Encaisser';
+        $('#mn-info').textContent = `×${mMult(k).toFixed(2)}` + (k < 25 - mc ? ` · prochaine case ×${mMult(k + 1).toFixed(2)}` : '');
+      } else $('#mn-info').textContent = `${mc} mine${mc > 1 ? 's' : ''} cachée${mc > 1 ? 's' : ''} · chaque 💎 augmente le gain, une 💣 fait tout perdre`;
+    }
+    function endMines(boom) {
+      mLive = false;
+      const win = boom ? 0 : Math.floor(mStake * mMult(opened.size));
+      Wallet.add(win); setBusy(false); renderMines(true);
+      say('m-mines', boom ? `💥 Boom ! ${fmt(-mStake)} pts` : `Encaissé ! ${fmt(win - mStake)} pts (×${mMult(opened.size).toFixed(2)})`, win - mStake);
+    }
+    $('#mn-opts').addEventListener('click', e => { const b = e.target.closest('.opt'); if (b && !busy) { mc = +b.dataset.n; renderMines(); } });
+    $('#mn-start').onclick = () => {
+      if (busy) return;
+      if (!Wallet.spend(bet)) return say('m-mines', 'Pas assez de points', 0);
+      mStake = bet; opened = new Set(); mines = new Set(); hit = -1;
+      while (mines.size < mc) mines.add(Math.random() * 25 | 0);
+      mLive = true; setBusy(true); say('m-mines', '');
+    };
+    $('#mn-grid').addEventListener('click', e => {
+      const t = e.target.closest('.tile'); if (!t || !mLive || t.disabled) return;
+      const i = +t.dataset.i;
+      if (mines.has(i)) { hit = i; return endMines(true); }
+      opened.add(i);
+      opened.size === 25 - mc ? endMines(false) : renderMines();
+    });
+    $('#mn-cash').onclick = () => { if (mLive && opened.size) endMines(false); };
+
+    renderChips(); renderOpts(); renderMines();
   </script>
 </body>
 </html>
